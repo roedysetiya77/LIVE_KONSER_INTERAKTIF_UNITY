@@ -1767,7 +1767,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ee8d1f62779b5e746981a1ca2d9b543f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TikTokUnityClient
-  serverUrl: http://localhost:3000
+  serverUrl: https://game-tiktok.onrender.com
   tiktokUsername: ceoindonesianghost
   usernameInputField: {fileID: 2105493104}
   connectButton: {fileID: 198892630}
@@ -2384,7 +2384,7 @@ VideoPlayer:
   m_AudioOutputMode: 0
   m_TargetAudioSources: []
   m_DirectAudioVolumes: []
-  m_Url: http://localhost:3000/assets/videos/Aneurysm.mp4
+  m_Url: https://game-tiktok.onrender.com/assets/videos/Aneurysm.mp4
   m_EnabledAudioTracks: 
   m_DirectAudioMutes: 
   m_ControlledAudioTrackCount: 0

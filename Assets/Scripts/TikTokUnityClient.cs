@@ -247,12 +247,19 @@ public class TikTokUnityClient : MonoBehaviour
 
 private void SetupAndConnectSocket()
     {
-        var uri = new Uri(serverUrl);
+        
+        
+        // Memastikan alamat menggunakan protokol wss:// (Secure WebSocket) khusus untuk WebGL online
+        string alamatSecure = serverUrl.Replace("https://", "wss://").Replace("http://", "ws://");
+        var uri = new Uri(alamatSecure);
+        
         socket = new SocketIOUnity(uri, new SocketIOOptions
         {
             Query = new Dictionary<string, string> { { "room", tiktokUsername } },
             EIO = EngineIO.V4 
         });
+
+        
 
         socket.OnConnected += (sender, e) => {
             EnqueueAction(() => {
