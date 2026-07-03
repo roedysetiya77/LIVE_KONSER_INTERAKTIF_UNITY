@@ -40,8 +40,6 @@ jobs:
         with:
           targetPlatform: WebGL
           unityVersion: 6000.5.1f1
-          # Memaksa Unity berjalan dalam mode batch/tanpa grafik murni tanpa bentrok parameter
-          customParameters: "-batchmode -nographics"
 
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
