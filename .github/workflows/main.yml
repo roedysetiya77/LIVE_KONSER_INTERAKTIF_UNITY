@@ -12,15 +12,11 @@ jobs:
     steps:
       - name: Free Disk Space 🧹
         run: |
-          echo "=== Sisa Storage Awal ==="
-          df -h
           sudo rm -rf /usr/share/dotnet
           sudo rm -rf /usr/local/lib/android
           sudo rm -rf /opt/ghc
           sudo rm -rf "/usr/local/share/boost"
           sudo rm -rf /usr/lib/jvm
-          echo "=== Sisa Storage Setelah Dibersihkan ==="
-          df -h
 
       - name: Checkout code
         uses: actions/checkout@v4
@@ -44,7 +40,8 @@ jobs:
         with:
           targetPlatform: WebGL
           unityVersion: 6000.5.1f1
-          customParameters: "-quit -batchmode -nographics"
+          # Memaksa Unity berjalan dalam mode batch/tanpa grafik murni tanpa bentrok parameter
+          customParameters: "-batchmode -nographics"
 
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
