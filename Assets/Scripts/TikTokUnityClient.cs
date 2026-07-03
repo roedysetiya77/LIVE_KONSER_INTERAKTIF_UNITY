@@ -12,7 +12,7 @@ public class TikTokUnityClient : MonoBehaviour
     private Dictionary<string, GameObject> viewersMapDiUnity = new Dictionary<string, GameObject>();
 
     [Header("Pengaturan Server Node.js")]
-    public string serverUrl = "http://localhost:3000";
+    public string serverUrl = "https://game-tiktok.onrender.com";
     
     [HideInInspector] 
     public string tiktokUsername = ""; 
