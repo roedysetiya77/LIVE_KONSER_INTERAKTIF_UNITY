@@ -233,17 +233,34 @@ public class TikTokUnityClient : MonoBehaviour
         }
     }
 
-    public void MulaiKoneksiManual()
-    {
-        if (usernameInputField == null || string.IsNullOrEmpty(usernameInputField.text))
-        {
-            Debug.LogError("❌ Username TikTok tidak boleh kosong! Silakan ketik dulu.");
-            return;
-        }
+    private void MulaiKoneksiManual()
+{
+    // 1. LOG WAJIB: Untuk membuktikan ke browser kalau tombol onClick.AddListener Anda sukses terpicu!
+    Debug.Log("<color=cyan><b>[UI EVENT]:</b> Tombol Hubungkan sukses diklik di WebGL!</color>");
 
-        tiktokUsername = usernameInputField.text.Trim();
-        SetupAndConnectSocket(); 
+    if (usernameInputField == null)
+    {
+        Debug.LogError("❌ Error: Komponen InputField tidak terpasang di Inspector!");
+        return;
     }
+
+    // 2. Bersihkan teks dari spasi atau karakter gaib WebGL (\u200b)
+    string usernameBersih = usernameInputField.text.Trim().Replace("\u200b", "");
+
+    Debug.Log($"[UI EVENT] Membaca teks input: '{usernameBersih}' (Panjang karakter: {usernameBersih.Length})");
+
+    if (string.IsNullOrEmpty(usernameBersih))
+    {
+        Debug.LogWarning("⚠️ Koneksi dibatalkan: Teks kosong atau tidak terbaca oleh WebGL.");
+        return;
+    }
+
+    // 3. Masukkan ke variabel utama jika lolos validasi
+    tiktokUsername = usernameBersih;
+
+    // 4. Panggil koneksi Socket Anda
+    SetupAndConnectSocket();
+}
 
 private void SetupAndConnectSocket()
     {
