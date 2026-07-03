@@ -5,6 +5,12 @@ on:
     branches:
       - main
 
+# Berikan izin ke server untuk menerbitkan website
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
 jobs:
   buildForWebGL:
     name: Build for WebGL 🌐
@@ -41,8 +47,8 @@ jobs:
           targetPlatform: WebGL
           unityVersion: 6000.5.1f1
 
-      - name: Upload Build Artifact
-        uses: actions/upload-artifact@v4
+      - name: Deploy to GitHub Pages 🚀
+        uses: JamesIves/github-pages-deploy-action@v4
         with:
-          name: WebGL-Build-Result
-          path: build/WebGL
+          folder: build/WebGL
+          branch: gh-pages # Game Anda akan diterbitkan di cabang khusus ini
