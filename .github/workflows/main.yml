@@ -5,7 +5,6 @@ on:
     branches:
       - main
 
-# Berikan izin ke server untuk menerbitkan website
 permissions:
   contents: write
   pages: write
@@ -50,5 +49,6 @@ jobs:
       - name: Deploy to GitHub Pages 🚀
         uses: JamesIves/github-pages-deploy-action@v4
         with:
-          folder: build/WebGL
-          branch: gh-pages # Game Anda akan diterbitkan di cabang khusus ini
+          # Menggunakan jalur absolut workspace GitHub agar tidak salah mengambil folder root Linux
+          folder: ${{ github.workspace }}/build/WebGL
+          branch: gh-pages
