@@ -6,6 +6,7 @@
     <title>Unity Web Player | Tiktok Game Live</title>
     <link rel="shortcut icon" href="TemplateData/favicon.ico">
     <link rel="stylesheet" href="TemplateData/style.css">
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   </head>
   <body>
     <div id="unity-container" class="unity-desktop">
@@ -127,6 +128,47 @@
             };
 
       document.body.appendChild(script);
+
+      var myUnityInstance = null;
+
+// Di dalam callback createUnityInstance bawaan Unity, pastikan instance-nya disimpan:
+createUnityInstance(canvas, config, (progress) => { ... }).then((unityInstance) => {
+    myUnityInstance = unityInstance; // Simpan ini agar bisa dipanggil oleh JS
+});
+
+// FUNGSI JEMBATAN UTAMA YANG DIPANGGIL UNITY
+function HubungkanSocketDariUnity(serverUrl, roomName) {
+    console.log("🌐 [JS BROWSER] Mencoba menyambungkan socket ke: " + serverUrl + " untuk Room: " + roomName);
+
+    // Inisialisasi socket versi browser murni (sangat stabil dan pasti muncul di tab WS!)
+    var socket = io(serverUrl, {
+        query: { room: roomName },
+        transports: ['websocket']
+    });
+
+    socket.on('connect', function() {
+        console.log("🔌 [JS BROWSER] Sukses terhubung ke server Node.js!");
+        // Kirim sinyal sukses ke GameObject di Unity (Sesuaikan nama GameObject Anda, misal: "TikTokManager")
+        if(myUnityInstance) {
+            myUnityInstance.SendMessage('NamaGameObjectScriptAnda', 'SinyalKoneksiSuksesDariBrowser', 'Terhubung!');
+        }
+    });
+
+    // Tangkap data dari server, lalu oper langsung ke Unity murni berbentuk string JSON
+    socket.on('tiktok-action', function(data) {
+        var jsonString = typeof data === 'object' ? JSON.stringify(data) : data;
+        console.log("📥 [JS BROWSER] Mengirim data ke Unity: " + jsonString);
+
+        if(myUnityInstance) {
+            // Panggil fungsi di Unity (Ganti 'NamaGameObjectScriptAnda' dengan nama objek tempat script ini menempel di Hierarchy)
+            myUnityInstance.SendMessage('NamaGameObjectScriptAnda', 'TerimaDataTikTokDariBrowser', jsonString);
+        }
+    });
+
+    socket.on('connect_error', function(err) {
+        console.error("❌ [JS BROWSER] Error koneksi: ", err);
+    });
+}
 
     </script>
   </body>
