@@ -150,7 +150,7 @@ function HubungkanSocketDariUnity(serverUrl, roomName) {
         console.log("🔌 [JS BROWSER] Sukses terhubung ke server Node.js!");
         // Kirim sinyal sukses ke GameObject di Unity (Sesuaikan nama GameObject Anda, misal: "TikTokManager")
         if(myUnityInstance) {
-            myUnityInstance.SendMessage('NamaGameObjectScriptAnda', 'SinyalKoneksiSuksesDariBrowser', 'Terhubung!');
+            myUnityInstance.SendMessage('TiktokManager', 'SinyalKoneksiSuksesDariBrowser', 'Terhubung!');
         }
     });
 
@@ -161,7 +161,7 @@ function HubungkanSocketDariUnity(serverUrl, roomName) {
 
         if(myUnityInstance) {
             // Panggil fungsi di Unity (Ganti 'NamaGameObjectScriptAnda' dengan nama objek tempat script ini menempel di Hierarchy)
-            myUnityInstance.SendMessage('NamaGameObjectScriptAnda', 'TerimaDataTikTokDariBrowser', jsonString);
+            myUnityInstance.SendMessage('TiktokManager', 'TerimaDataTikTokDariBrowser', jsonString);
         }
     });
 
