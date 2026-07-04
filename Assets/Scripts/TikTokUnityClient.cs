@@ -233,34 +233,17 @@ public class TikTokUnityClient : MonoBehaviour
         }
     }
 
-    private void MulaiKoneksiManual()
-{
-    // 1. LOG WAJIB: Untuk membuktikan ke browser kalau tombol onClick.AddListener Anda sukses terpicu!
-    Debug.Log("<color=cyan><b>[UI EVENT]:</b> Tombol Hubungkan sukses diklik di WebGL!</color>");
-
-    if (usernameInputField == null)
+    public void MulaiKoneksiManual()
     {
-        Debug.LogError("❌ Error: Komponen InputField tidak terpasang di Inspector!");
-        return;
+        if (usernameInputField == null || string.IsNullOrEmpty(usernameInputField.text))
+        {
+            Debug.LogError("❌ Username TikTok tidak boleh kosong! Silakan ketik dulu.");
+            return;
+        }
+
+        tiktokUsername = usernameInputField.text.Trim();
+        SetupAndConnectSocket(); 
     }
-
-    // 2. Bersihkan teks dari spasi atau karakter gaib WebGL (\u200b)
-    string usernameBersih = usernameInputField.text.Trim().Replace("\u200b", "");
-
-    Debug.Log($"[UI EVENT] Membaca teks input: '{usernameBersih}' (Panjang karakter: {usernameBersih.Length})");
-
-    if (string.IsNullOrEmpty(usernameBersih))
-    {
-        Debug.LogWarning("⚠️ Koneksi dibatalkan: Teks kosong atau tidak terbaca oleh WebGL.");
-        return;
-    }
-
-    // 3. Masukkan ke variabel utama jika lolos validasi
-    tiktokUsername = usernameBersih;
-
-    // 4. Panggil koneksi Socket Anda
-    SetupAndConnectSocket();
-}
 
 private void SetupAndConnectSocket()
     {
@@ -386,7 +369,34 @@ private void SetupAndConnectSocket()
             });
         });
 
+        // Listener Detektif Error Koneksi
+        socket.OnAny((eventName, response) => {
+            if (eventName == "connect_error" || eventName == "error" || eventName == "disconnect")
+            {
+                Debug.LogError($"❌ [SOCKET ALERT] Event Kegagalan Terdeteksi: {eventName} | Data: {response}");
+            }
+        });
+
+        // === GANTI socket.Connect(); DENGAN BLOK DI BAWAH INI ===
+        
+        Debug.Log("🌐 [SOCKET] Memulai prosedur koneksi aman WebGL...");
+        
+        #if UNITY_WEBGL && !UNITY_EDITOR
+        // Menggunakan StartCoroutine atau jalankan via Task tanpa memblokir thread utama WebGL
+        System.Threading.Tasks.Task.Run(async () => {
+            try {
+                await socket.ConnectAsync();
+                Debug.Log("🌐 [SOCKET] ConnectAsync sukses dieksekusi.");
+            } catch (System.Exception ex) {
+                Debug.LogError($"❌ [SOCKET] Gagal ConnectAsync di WebGL: {ex.Message}");
+            }
+        });
+        #else
+        // Untuk Unity Editor tetap gunakan Connect standar bawaan library Anda
         socket.Connect();
+        Debug.Log("🌐 [SOCKET] PC/Editor Connect dipicu.");
+        #endif
+    }
     }
 
    private void EnqueueAction(Action action) { lock (mainThreadActions) { mainThreadActions.Enqueue(action); } }
