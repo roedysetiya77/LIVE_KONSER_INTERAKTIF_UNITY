@@ -378,6 +378,28 @@ public class TikTokUnityClient : MonoBehaviour
 
     private void EnqueueAction(Action action) { lock (mainThreadActions) { mainThreadActions.Enqueue(action); } }
 
+
+    // Tambahkan fungsi ini di dalam script TikTokUnityClient.cs Anda
+public void MatikanInputPINManual()
+{
+    if (pinInputField != null)
+    {
+        pinInputField.gameObject.SetActive(false);
+        Debug.Log("🔒 [WEBGL FIX] Input PIN berhasil dimatikan secara manual lewat perintah jembatan browser!");
+    }
+    else
+    {
+        // Jika ternyata slotnya kosong, kita cari paksa berdasarkan nama objeknya di Hierarchy
+        GameObject targetPIN = GameObject.Find("InputPIN");
+        if (targetPIN != null)
+        {
+            targetPIN.SetActive(false);
+            Debug.Log("🔒 [WEBGL FIX] Input PIN ditemukan secara paksa di Hierarchy dan berhasil dimatikan!");
+        }
+    }
+}
+
+
     private void CoretaHadiahHandler(string jsonData)
     {
         try
