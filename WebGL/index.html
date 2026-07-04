@@ -11,6 +11,7 @@
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   </head>
   <body>
+    <input type="file" id="webgl-file-picker" accept="audio/mp3,video/mp4" style="display:none;" />
     <div id="unity-container" class="unity-desktop">
       <canvas id="unity-canvas" width=960 height=600 tabindex="-1"></canvas>
       <div id="unity-loading-bar">
@@ -187,6 +188,37 @@
         });
       };
 
+    // ====================================================================
+// JEMBATAN UNTUK MEMBUKA FILE EXPLORER ASLI DEVICE (HP/LAPTOP)
+// ====================================================================
+window.BukaFileExplorerAsli = function() {
+    console.log("📂 [JS BROWSER] Membuka File Explorer asli perangkat...");
+    var fileInput = document.getElementById('webgl-file-picker');
+    
+    // Reset input agar file yang sama bisa dipilih ulang
+    fileInput.value = ''; 
+    
+    // Pemicu klik otomatis pada input file HTML
+    fileInput.click();
+};
+
+// Event listener saat user selesai memilih file di HP/Laptop mereka
+document.getElementById('webgl-file-picker').addEventListener('change', function(event) {
+    var file = event.target.files[0];
+    if (!file) return;
+
+    console.log("🎵 [JS BROWSER] File terpilih: " + file.name);
+
+    // Mengubah file fisik menjadi URL lokal sementara yang bisa dibaca Unity
+    var blobURL = URL.createObjectURL(file);
+
+    if (myUnityInstance) {
+        // Kirim URL lokal ini ke Unity agar bisa langsung diputar oleh AudioSource / VideoPlayer
+        // Pastikan 'TikTokManager' dan nama fungsi di C# Anda sesuai!
+        myUnityInstance.SendMessage('TikTokManager', 'TerimaUrlFileDariBrowser', blobURL);
+    }
+});
+      
     </script>
   </body>
 </html>
