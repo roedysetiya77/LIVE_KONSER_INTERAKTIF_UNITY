@@ -6,6 +6,9 @@
     <title>Unity Web Player | Tiktok Game Live</title>
     <link rel="shortcut icon" href="TemplateData/favicon.ico">
     <link rel="stylesheet" href="TemplateData/style.css">
+    
+    <!-- 1. IMPORT LIBRARY SOCKET.IO DARI CDN AGAR BROWSER BISA TERHUBUNG KE RENDER -->
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   </head>
   <body>
     <div id="unity-container" class="unity-desktop">
@@ -25,6 +28,7 @@
     </div>
     <script>
       var canvas = document.querySelector("#unity-canvas");
+      var myGameInstance = null; // Menyimpan instance Unity secara global
 
       function unityShowBanner(msg, type) {
         var warningBanner = document.querySelector("#unity-warning");
@@ -74,20 +78,51 @@
       document.querySelector("#unity-loading-bar").style.display = "block";
 
       // ====================================================================
-      // JEMBATAN KONEKSI SOCKET DARI UNITY KE BROWSER
+      // LOGIKA AKTIF JEMBATAN KONEKSI SOCKET DARI UNITY KE BROWSER
       // ====================================================================
       window.HubungkanSocketDariUnity = function(roomName) {
-        console.log("🔌 [WEBGL BRIDGE] Unity meminta koneksi untuk Room:", roomName);
+        console.log("🔌 [WEBGL BRIDGE] Memulai koneksi Socket.io untuk Room:", roomName);
         
-        // Di bawah ini adalah contoh logika integrasi jika Anda menggunakan WebSockets / Socket.io bawaan web:
-        /*
         if (typeof io !== 'undefined') {
-            const socket = io("https://game-tiktok.onrender.com");
-            socket.emit("join_room", roomName);
+            const serverUrl = "https://game-tiktok.onrender.com";
+            
+            // Buat koneksi socket dengan membawa query room (username TikTok)
+            const socket = io(serverUrl, {
+                query: { room: roomName },
+                transports: ['websocket', 'polling']
+            });
+
+            socket.on("connect", function() {
+                console.log("✅ [BROWSER JS] Sukses Terhubung ke Node.js Server!");
+                
+                // Beritahu Unity bahwa koneksi telah sukses terhubung
+                // PENTING: Ganti "TikTokManager" dengan nama GameObject tempat script C# Anda menempel di Unity!
+                if (myGameInstance) {
+                    myGameInstance.SendMessage("TikTokManager", "SinyalKoneksiSuksesDariBrowser", "Terhubung ke " + roomName);
+                }
+            });
+
+            // Mendengarkan event 'tiktok-action' dari server Node.js Anda
+            socket.on("tiktok-action", function(data) {
+                if (myGameInstance) {
+                    // Kirim string JSON mentah kembali ke Unity C#
+                    myGameInstance.SendMessage("TikTokManager", "TerimaDataTikTokDariBrowser", JSON.stringify(data));
+                }
+            });
+
+            // Mendengarkan event 'tiktok-to-unity' (opsional jika server Anda mengirim ini)
+            socket.on("tiktok-to-unity", function(data) {
+                if (myGameInstance) {
+                    myGameInstance.SendMessage("TikTokManager", "TerimaDataTikTokDariBrowser", JSON.stringify(data));
+                }
+            });
+
+            socket.on("connect_error", function(err) {
+                console.error("❌ [BROWSER JS] Gagal koneksi ke server Render:", err.message);
+            });
         } else {
-            console.warn("Library Socket.io tidak ditemukan di index.html");
+            console.error("❌ Library Socket.io gagal dimuat di browser!");
         }
-        */
       };
       // ====================================================================
 
@@ -97,6 +132,7 @@
         createUnityInstance(canvas, config, (progress) => {
           document.querySelector("#unity-progress-bar-full").style.width = 100 * progress + "%";
         }).then((unityInstance) => {
+          myGameInstance = unityInstance; // Simpan ke variabel global agar bisa dipakai di SendMessage
           document.querySelector("#unity-loading-bar").style.display = "none";
           document.querySelector("#unity-fullscreen-button").onclick = () => {
             unityInstance.SetFullscreen(1);
