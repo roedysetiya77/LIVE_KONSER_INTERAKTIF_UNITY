@@ -33,11 +33,12 @@ public class MediaRuntimeLoader : MonoBehaviour
     public void PilihFileVideo()
     {
 #if UNITY_WEBGL && !UNITY_EDITOR
-        // Di WebGL, kirim nama Game Object ini, nama fungsi penangkap, dan filter tipe datanya
-        TriggerWebGLFilePicker(gameObject.name, "OnVideoFileSelected", "video/mp4");
+        // PAKSA WEBGL: Mengunci string target langsung ke objek Sistem_Media_Manager Anda
+        TriggerWebGLFilePicker("Sistem_Media_Manager", "OnVideoFileSelected", "video/mp4");
 #else
+        // KHUSUS DI EDITOR PC / STANDALONE
         FileBrowser.SetFilters(true, new FileBrowser.Filter("Video MP4", ".mp4"));
-        StartCoroutine(BukaDialogFile(true));
+        StartCoroutine(BukaDialogFileLokal(true));
 #endif
     }
 
@@ -45,16 +46,18 @@ public class MediaRuntimeLoader : MonoBehaviour
     public void PilihFileAudio()
     {
 #if UNITY_WEBGL && !UNITY_EDITOR
-        TriggerWebGLFilePicker(gameObject.name, "OnAudioFileSelected", "audio/mpeg, audio/mp3");
+        // PAKSA WEBGL: Mengunci string target langsung ke objek Sistem_Media_Manager Anda
+        TriggerWebGLFilePicker("Sistem_Media_Manager", "OnAudioFileSelected", "audio/mpeg, audio/mp3");
 #else
+        // KHUSUS DI EDITOR PC / STANDALONE
         FileBrowser.SetFilters(true, new FileBrowser.Filter("Lagu MP3", ".mp3"));
-        StartCoroutine(BukaDialogFile(false));
+        StartCoroutine(BukaDialogFileLokal(false));
 #endif
     }
 
 #if !UNITY_WEBGL || UNITY_EDITOR
-    // Jembatan pembaca file PC / Standalone (SimpleFileBrowser)
-    IEnumerator BukaDialogFile(bool isVideo)
+    // Coroutine ini sekarang diisolasi agar TIDAK AKAN PERNAH di-compile saat di-build ke WebGL
+    IEnumerator BukaDialogFileLokal(bool isVideo)
     {
         string judul = isVideo ? "Pilih Video Konser (.mp4)" : "Pilih Lagu Konser (.mp3)";
         yield return FileBrowser.WaitForLoadDialog(FileBrowser.PickMode.Files, false, null, null, judul, "Load");
@@ -64,12 +67,12 @@ public class MediaRuntimeLoader : MonoBehaviour
             if (isVideo)
             {
                 jalurVideo = FileBrowser.Result[0];
-                Debug.Log("Video terpilih (PC): " + jalurVideo);
+                Debug.Log("Video terpilih (PC Editor): " + jalurVideo);
             }
             else
             {
                 jalurAudio = FileBrowser.Result[0];
-                Debug.Log("Audio terpilih (PC): " + jalurAudio);
+                Debug.Log("Audio terpilih (PC Editor): " + jalurAudio);
             }
         }
     }
@@ -78,16 +81,15 @@ public class MediaRuntimeLoader : MonoBehaviour
     // ================= FUNGSI TANGKAPAN DARI WEBGL BROWSER =================
     public void OnVideoFileSelected(string urlData)
     {
-        jalurVideo = urlData; // Berisi URL Blob dari Browser (blob:http://...)
-        Debug.Log("Video Terpilih (WebGL Blob): " + jalurVideo);
+        jalurVideo = urlData; // Berisi URL Blob asli dari Browser (blob:http://...)
+        Debug.Log("Video Terpilih Berhasil (WebGL Blob): " + jalurVideo);
     }
 
     public void OnAudioFileSelected(string urlData)
     {
-        jalurAudio = urlData; // Berisi URL Blob dari Browser (blob:http://...)
-        Debug.Log("Audio Terpilih (WebGL Blob): " + jalurAudio);
+        jalurAudio = urlData; // Berisi URL Blob asli dari Browser (blob:http://...)
+        Debug.Log("Audio Terpilih Berhasil (WebGL Blob): " + jalurAudio);
     }
-
 
     // 3. Fungsi UTAMA untuk memutar Video & Audio secara serentak
     public void PutarKonser()
@@ -106,7 +108,7 @@ public class MediaRuntimeLoader : MonoBehaviour
 
             videoPlayer.renderMode = VideoRenderMode.RenderTexture; 
             videoPlayer.source = VideoSource.Url;
-            videoPlayer.url = jalurVideo; // Di WebGL, langsung membaca URL Blob dari browser
+            videoPlayer.url = jalurVideo; // Langsung membaca URL Blob lokal web browser
             videoPlayer.Play();
             Debug.Log("Memutar Video Baru + MP3 Baru.");
         }
@@ -135,7 +137,6 @@ public class MediaRuntimeLoader : MonoBehaviour
     {
         string urlAudio = path;
 
-        // Jika di PC/Standalone, jalurnya butuh prefix "file://", sedangkan di WebGL link Blob sudah berupa URL valid langsung
 #if !UNITY_WEBGL || UNITY_EDITOR
         if (!urlAudio.StartsWith("file://")) {
             urlAudio = "file://" + path;
