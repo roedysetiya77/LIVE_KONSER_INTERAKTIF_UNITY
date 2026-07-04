@@ -124,8 +124,12 @@
           console.log("✅ Terhubung ke Server Node.js dari Browser!");
           
           if (window.gameInstance) {
-            // Mengirim sinyal sukses ke Unity agar UI (termasuk PIN) otomatis menghilang
+            // 1. Mengirim sinyal sukses ke Unity (Logika utama Anda)
             window.gameInstance.SendMessage('TiktokManager', 'SinyalKoneksiSuksesDariBrowser', 'Sukses terhubung via WebGL!');
+            
+            // 2. SCRIPT TAMBAHAN: Paksa sembunyikan objek PIN langsung dari HTML
+            // Perintah ini akan mencari GameObject bernama "InputPIN" di Unity Anda dan menonaktifkannya
+            window.gameInstance.SendMessage('InputPIN', 'SetActive', 0);
           }
 
           // Kirim data registrasi akun lengkap dengan PIN ke server Node.js Anda
