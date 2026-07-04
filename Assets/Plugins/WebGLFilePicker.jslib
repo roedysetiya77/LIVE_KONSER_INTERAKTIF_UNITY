@@ -1,35 +1,50 @@
 mergeInto(LibraryManager.library, {
     TriggerWebGLFilePicker: function (objectNamePtr, methodNamePtr, fileTypePtr) {
-        var objectName = Pointer_stringify(objectNamePtr);
-        var methodName = Pointer_stringify(methodNamePtr);
-        var fileType = Pointer_stringify(fileTypePtr);
+        // Menggunakan UTF8ToString untuk Unity versi modern agar string terbaca dengan benar
+        var objectName = UTF8ToString(objectNamePtr);
+        var methodName = UTF8ToString(methodNamePtr);
+        var fileType = UTF8ToString(fileTypePtr);
 
-        // Hapus input lama jika ada sisa
+        console.log("📂 [JS BROWSER] Mencoba memicu File Picker untuk tipe: " + fileType);
+
+        // Hapus input lama jika tersisa di halaman web
         var oldInput = document.getElementById('unity-file-picker');
-        if (oldInput) document.body.removeChild(oldInput);
+        if (oldInput) {
+            oldInput.parentNode.removeChild(oldInput);
+        }
 
-        // Buat elemen input file HTML5
+        // Buat elemen input file HTML5 secara dinamis
         var fileInput = document.createElement('input');
         fileInput.id = 'unity-file-picker';
         fileInput.type = 'file';
-        fileInput.accept = fileType; // Contoh: 'video/mp4' atau 'audio/mpeg'
+        fileInput.accept = fileType;
         fileInput.style.display = 'none';
 
         fileInput.onchange = function (event) {
             var file = event.target.files[0];
-            if (!file) return;
+            if (!file) {
+                console.warn("⚠️ [JS BROWSER] Pemilihan file dibatalkan oleh user.");
+                return;
+            }
 
-            // Buat URL lokal sementara (Blob URL) agar bisa dibaca UnityWebRequest
+            console.log("🎵 [JS BROWSER] File berhasil dipilih: " + file.name + " (" + file.size + " bytes)");
+
+            // Buat URL lokal sementara (Blob URL)
             var blobUrl = URL.createObjectURL(file);
+            console.log("🔗 [JS BROWSER] Blob URL dibuat: " + blobUrl);
 
-            // Kirim URL blob kembali ke object dan fungsi di Unity
+            // Kirim balik URL Blob ke objek Unity yang memanggilnya
             SendMessage(objectName, methodName, blobUrl);
             
-            // Bersihkan elemen setelah selesai
-            document.body.removeChild(fileInput);
+            // Bersihkan elemen input dari DOM browser
+            if (fileInput.parentNode) {
+                fileInput.parentNode.removeChild(fileInput);
+            }
         };
 
         document.body.appendChild(fileInput);
+        
+        // Pemicu klik fisik browser
         fileInput.click();
     }
 });
