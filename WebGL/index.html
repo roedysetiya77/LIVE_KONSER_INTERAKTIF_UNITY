@@ -116,21 +116,21 @@
           
           if (window.gameInstance) {
             // PENTING: Ganti "TikTokClient" dengan nama GameObject tempat script Anda berada di Hierarchy Unity
-            window.gameInstance.SendMessage('TikTokClient', 'SinyalKoneksiSuksesDariBrowser', 'Sukses terhubung via WebGL!');
+            window.gameInstance.SendMessage('TiktokManager', 'SinyalKoneksiSuksesDariBrowser', 'Sukses terhubung via WebGL!');
           }
         });
 
         socket.on("tiktok-to-unity", (data) => {
           if (window.gameInstance) {
             let jsonString = typeof data === 'object' ? JSON.stringify(data) : data;
-            window.gameInstance.SendMessage('TikTokClient', 'TerimaDataTikTokDariBrowser', jsonString);
+            window.gameInstance.SendMessage('TiktokManager', 'TerimaDataTikTokDariBrowser', jsonString);
           }
         });
         
         socket.on("tiktok-action", (data) => {
           if (window.gameInstance) {
             let jsonString = typeof data === 'object' ? JSON.stringify(data) : data;
-            window.gameInstance.SendMessage('TikTokClient', 'TerimaDataTikTokDariBrowser', jsonString);
+            window.gameInstance.SendMessage('TiktokManager', 'TerimaDataTikTokDariBrowser', jsonString);
           }
         });
 
