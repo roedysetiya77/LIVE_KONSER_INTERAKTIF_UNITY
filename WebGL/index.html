@@ -6,9 +6,6 @@
     <title>Unity Web Player | Tiktok Game Live</title>
     <link rel="shortcut icon" href="TemplateData/favicon.ico">
     <link rel="stylesheet" href="TemplateData/style.css">
-    
-    <!-- 1. IMPORT LIBRARY SOCKET.IO DARI CDN AGAR BROWSER BISA TERHUBUNG KE RENDER -->
-    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   </head>
   <body>
     <div id="unity-container" class="unity-desktop">
@@ -28,8 +25,13 @@
     </div>
     <script>
       var canvas = document.querySelector("#unity-canvas");
-      var myGameInstance = null; // Menyimpan instance Unity secara global
 
+      // Shows a temporary message banner/ribbon for a few seconds, or
+      // a permanent error message on top of the canvas if type=='error'.
+      // If type=='warning', a yellow highlight color is used.
+      // Modify or remove this function to customize the visually presented
+      // way that non-critical warnings and error messages are presented to the
+      // user.
       function unityShowBanner(msg, type) {
         var warningBanner = document.querySelector("#unity-warning");
         function updateBannerVisibility() {
@@ -59,90 +61,73 @@
         streamingAssetsUrl: "StreamingAssets",
         companyName: "DefaultCompany",
         productName: "Tiktok Game Live",
-        productVersion: "0.0.17",
+        productVersion: "0.0.18",
         showBanner: unityShowBanner,
+        // errorHandler: function(err, url, line) {
+        //    alert("error " + err + " occurred at line " + line);
+        //    // Return 'true' if you handled this error and don't want Unity
+        //    // to process it further, 'false' otherwise.
+        //    return true;
+        // },
       };
 
+      // By default, Unity keeps WebGL canvas render target size matched with
+      // the DOM size of the canvas element (scaled by window.devicePixelRatio)
+      // Set this to false if you want to decouple this synchronization from
+      // happening inside the engine, and you would instead like to size up
+      // the canvas DOM size and WebGL render target sizes yourself.
+      // config.matchWebGLToCanvasSize = false;
+
+      // If you would like all file writes inside Unity Application.persistentDataPath
+      // directory to automatically persist so that the contents are remembered when
+      // the user revisits the site the next time, uncomment the following line:
+      // config.autoSyncPersistentDataPath = true;
+      // This autosyncing is currently not the default behavior to avoid regressing
+      // existing user projects that might rely on the earlier manual
+      // JS_FileSystem_Sync() behavior, but in future Unity version, this will be
+      // expected to change.
+
       if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+        // Mobile device style: fill the whole browser client area with the game canvas:
+
         var meta = document.createElement('meta');
         meta.name = 'viewport';
         meta.content = 'width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes';
         document.getElementsByTagName('head')[0].appendChild(meta);
         document.querySelector("#unity-container").className = "unity-mobile";
         canvas.className = "unity-mobile";
+
+        // To lower canvas resolution on mobile devices to gain some
+        // performance, uncomment the following line:
+        // config.devicePixelRatio = 1;
+
+
       } else {
+        // Desktop style: Render the game canvas in a window that can be maximized to fullscreen:
         canvas.style.width = "960px";
         canvas.style.height = "600px";
       }
 
       document.querySelector("#unity-loading-bar").style.display = "block";
 
-      // ====================================================================
-      // LOGIKA AKTIF JEMBATAN KONEKSI SOCKET DARI UNITY KE BROWSER
-      // ====================================================================
-      window.HubungkanSocketDariUnity = function(roomName) {
-        console.log("🔌 [WEBGL BRIDGE] Memulai koneksi Socket.io untuk Room:", roomName);
-        
-        if (typeof io !== 'undefined') {
-            const serverUrl = "https://game-tiktok.onrender.com";
-            
-            // Buat koneksi socket dengan membawa query room (username TikTok)
-            const socket = io(serverUrl, {
-                query: { room: roomName },
-                transports: ['websocket', 'polling']
-            });
-
-            socket.on("connect", function() {
-                console.log("✅ [BROWSER JS] Sukses Terhubung ke Node.js Server!");
-                
-                // Beritahu Unity bahwa koneksi telah sukses terhubung
-                // PENTING: Ganti "TikTokManager" dengan nama GameObject tempat script C# Anda menempel di Unity!
-                if (myGameInstance) {
-                    myGameInstance.SendMessage("TiktokManager", "SinyalKoneksiSuksesDariBrowser", "Terhubung ke " + roomName);
-                }
-            });
-
-            // Mendengarkan event 'tiktok-action' dari server Node.js Anda
-            socket.on("tiktok-action", function(data) {
-                if (myGameInstance) {
-                    // Kirim string JSON mentah kembali ke Unity C#
-                    myGameInstance.SendMessage("TiktokManager", "TerimaDataTikTokDariBrowser", JSON.stringify(data));
-                }
-            });
-
-            // Mendengarkan event 'tiktok-to-unity' (opsional jika server Anda mengirim ini)
-            socket.on("tiktok-to-unity", function(data) {
-                if (myGameInstance) {
-                    myGameInstance.SendMessage("TiktokManager", "TerimaDataTikTokDariBrowser", JSON.stringify(data));
-                }
-            });
-
-            socket.on("connect_error", function(err) {
-                console.error("❌ [BROWSER JS] Gagal koneksi ke server Render:", err.message);
-            });
-        } else {
-            console.error("❌ Library Socket.io gagal dimuat di browser!");
-        }
-      };
-      // ====================================================================
-
       var script = document.createElement("script");
       script.src = loaderUrl;
       script.onload = () => {
         createUnityInstance(canvas, config, (progress) => {
           document.querySelector("#unity-progress-bar-full").style.width = 100 * progress + "%";
-        }).then((unityInstance) => {
-          myGameInstance = unityInstance; // Simpan ke variabel global agar bisa dipakai di SendMessage
-          document.querySelector("#unity-loading-bar").style.display = "none";
-          document.querySelector("#unity-fullscreen-button").onclick = () => {
-            unityInstance.SetFullscreen(1);
-          };
-        }).catch((message) => {
-          alert(message);
-        });
-      };
+              }).then((unityInstance) => {
+                document.querySelector("#unity-loading-bar").style.display = "none";
+                document.querySelector("#unity-fullscreen-button").onclick = () => {
+                  unityInstance.SetFullscreen(1);
+                };
+
+              }).catch((message) => {
+                alert(message);
+              });
+            };
 
       document.body.appendChild(script);
+
     </script>
   </body>
 </html>
