@@ -6,6 +6,9 @@
     <title>Unity Web Player | Tiktok Game Live</title>
     <link rel="shortcut icon" href="TemplateData/favicon.ico">
     <link rel="stylesheet" href="TemplateData/style.css">
+    
+    <!-- Pustaka Socket.io Client untuk menangani websocket browser secara stabil -->
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   </head>
   <body>
     <div id="unity-container" class="unity-desktop">
@@ -24,6 +27,9 @@
       </div>
     </div>
     <script>
+      // Variabel global penampung instance Unity agar bisa diakses oleh fungsi luar
+      var myUnityInstance = null;
+
       var canvas = document.querySelector("#unity-canvas");
 
       // Shows a temporary message banner/ribbon for a few seconds, or
@@ -115,18 +121,71 @@
       script.onload = () => {
         createUnityInstance(canvas, config, (progress) => {
           document.querySelector("#unity-progress-bar-full").style.width = 100 * progress + "%";
-              }).then((unityInstance) => {
-                document.querySelector("#unity-loading-bar").style.display = "none";
-                document.querySelector("#unity-fullscreen-button").onclick = () => {
-                  unityInstance.SetFullscreen(1);
-                };
+        }).then((unityInstance) => {
+          // Menyimpan instance game yang berhasil dimuat ke variabel global
+          myUnityInstance = unityInstance;
 
-              }).catch((message) => {
-                alert(message);
-              });
-            };
+          document.querySelector("#unity-loading-bar").style.display = "none";
+          document.querySelector("#unity-fullscreen-button").onclick = () => {
+            unityInstance.SetFullscreen(1);
+          };
+
+        }).catch((message) => {
+          alert(message);
+        });
+      };
 
       document.body.appendChild(script);
+
+      // ====================================================================
+      // JEMBATAN INTERAKSI KONEKSI JAVASCRIPT GLOBAL (DIPANGGIL OLEH UNITY)
+      // ====================================================================
+      window.HubungkanSocketDariUnity = function(serverUrl, roomName) {
+        console.log("🌐 [JS BROWSER] Menerima instruksi dari Unity. Menghubungkan ke: " + serverUrl + " | Room: " + roomName);
+        
+        // Membuka jaringan koneksi Socket murni sisi browser
+        var socket = io(serverUrl, {
+          query: { room: roomName },
+          transports: ['websocket']
+        });
+
+        socket.on('connect', function() {
+          console.log("🔌 [JS BROWSER] Koneksi ke Node.js Server berhasil dibangun!");
+          if (myUnityInstance) {
+            // Sinyal sukses dikirim kembali ke Game Object 'TikTokManager' di Unity
+            myUnityInstance.SendMessage('TiktokManager', 'SinyalKoneksiSuksesDariBrowser', 'Terhubung via Jembatan WebGL Browser!');
+          }
+        });
+
+        // Menangkap data aksi TikTok-Action terpadu dari Server Node.js
+        socket.on('tiktok-action', function(data) {
+          var jsonString = typeof data === 'object' ? JSON.stringify(data) : data;
+          console.log("📥 [JS BROWSER] Menangkap payload event, meneruskan ke Unity: " + jsonString);
+          
+          if (myUnityInstance) {
+            // Mengirim string data mentah ke method penampung di Unity
+            myUnityInstance.SendMessage('TiktokManager', 'TerimaDataTikTokDariBrowser', jsonString);
+          }
+        });
+
+        // Menangkap data alternatif jika server Anda menggunakan pengirim event 'tiktok-to-unity'
+        socket.on('tiktok-to-unity', function(data) {
+          var jsonString = typeof data === 'object' ? JSON.stringify(data) : data;
+          console.log("📥 [JS BROWSER] Menangkap payload alternatif, meneruskan ke Unity: " + jsonString);
+          
+          if (myUnityInstance) {
+            myUnityInstance.SendMessage('TiktokManager', 'TerimaDataTikTokDariBrowser', jsonString);
+          }
+        });
+        
+        socket.on('connect_error', function(err) {
+          console.error("❌ [JS BROWSER] Gagal tersambung ke server socket, kendala jaringan: ", err);
+        });
+
+        socket.on('disconnect', function(reason) {
+          console.warn("⚠️ [JS BROWSER] Koneksi terputus dari server. Alasan: ", reason);
+        });
+      };
 
     </script>
   </body>
