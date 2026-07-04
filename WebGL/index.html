@@ -98,7 +98,7 @@
                 // Beritahu Unity bahwa koneksi telah sukses terhubung
                 // PENTING: Ganti "TikTokManager" dengan nama GameObject tempat script C# Anda menempel di Unity!
                 if (myGameInstance) {
-                    myGameInstance.SendMessage("TikTokManager", "SinyalKoneksiSuksesDariBrowser", "Terhubung ke " + roomName);
+                    myGameInstance.SendMessage("TiktokManager", "SinyalKoneksiSuksesDariBrowser", "Terhubung ke " + roomName);
                 }
             });
 
@@ -106,14 +106,14 @@
             socket.on("tiktok-action", function(data) {
                 if (myGameInstance) {
                     // Kirim string JSON mentah kembali ke Unity C#
-                    myGameInstance.SendMessage("TikTokManager", "TerimaDataTikTokDariBrowser", JSON.stringify(data));
+                    myGameInstance.SendMessage("TiktokManager", "TerimaDataTikTokDariBrowser", JSON.stringify(data));
                 }
             });
 
             // Mendengarkan event 'tiktok-to-unity' (opsional jika server Anda mengirim ini)
             socket.on("tiktok-to-unity", function(data) {
                 if (myGameInstance) {
-                    myGameInstance.SendMessage("TikTokManager", "TerimaDataTikTokDariBrowser", JSON.stringify(data));
+                    myGameInstance.SendMessage("TiktokManager", "TerimaDataTikTokDariBrowser", JSON.stringify(data));
                 }
             });
 
