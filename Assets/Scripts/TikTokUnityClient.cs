@@ -161,6 +161,7 @@ public class TikTokUnityClient : MonoBehaviour
                     targetMataFokus = fokusKePenonton;
                 }
 
+                // Perbaikan XML-Safe string perbandingan untuk menghindari gangguan parser
                 Vector3 posisiTargetBaru = new Vector3(targetX, targetY, targetZ);
                 mainCamera.transform.position = Vector3.SmoothDamp(mainCamera.transform.position, posisiTargetBaru, ref velocityKamera, waktuRedam);
 
@@ -245,12 +246,29 @@ public class TikTokUnityClient : MonoBehaviour
         SetupAndConnectSocket(); 
     }
 
-private void SetupAndConnectSocket()
+    private void SetupAndConnectSocket()
     {
-        
-        
-        // Memastikan alamat menggunakan protokol wss:// (Secure WebSocket) khusus untuk WebGL online
-        string alamatSecure = serverUrl.Replace("https://", "wss://").Replace("http://", "ws://");
+        string urlBersih = serverUrl.Trim();
+
+        #if UNITY_WEBGL && !UNITY_EDITOR
+        // ====================================================================
+        // JALUR WEBGL ONLINE: DELEGASIKAN KONEKSI SEPENUHNYA KE BROWSER JS
+        // ====================================================================
+        Debug.Log($"🔌 [WEBGL BRIDGE] Mengirim perintah koneksi ke Browser untuk Room: {tiktokUsername} di URL: {urlBersih}");
+        try 
+        {
+            // Memanggil fungsi 'HubungkanSocketDariUnity' yang terpasang di file index.html
+            Application.ExternalCall("HubungkanSocketDariUnity", urlBersih, tiktokUsername);
+        } 
+        catch (System.Exception ex) 
+        {
+            Debug.LogError($"❌ [BRIDGE ERROR] Gagal memanggil jembatan browser: {ex.Message}");
+        }
+        #else
+        // ====================================================================
+        // JALUR EDITOR / PC: MENGGUNAKAN LIBRARY C# ORIGINAL SPERTI BIASA
+        // ====================================================================
+        string alamatSecure = urlBersih.Replace("https://", "wss://").Replace("http://", "ws://");
         var uri = new Uri(alamatSecure);
         
         socket = new SocketIOUnity(uri, new SocketIOOptions
@@ -259,45 +277,20 @@ private void SetupAndConnectSocket()
             EIO = EngineIO.V4 
         });
 
-        
-
         socket.OnConnected += (sender, e) => {
             EnqueueAction(() => {
-                if (usernameInputField != null) usernameInputField.gameObject.SetActive(false);
-                if (connectButton != null) connectButton.gameObject.SetActive(false);
-                if (JudulGame != null) JudulGame.gameObject.SetActive(false);
-                if (Footer != null) Footer.gameObject.SetActive(false);
-
-                GameObject[] paraPenonton = GameObject.FindGameObjectsWithTag("Penonton");
-                if (paraPenonton != null && paraPenonton.Length > 0)
-                {
-                    foreach (GameObject penonton in paraPenonton)
-                    {
-                        Animator anim = penonton.GetComponent<Animator>();
-                        if (anim != null) { try { anim.CrossFadeInFixedTime("Idle", 0.2f); } catch { } }
-                    }
-                }
+                SinyalKoneksiSuksesDariBrowser("Terhubung via Editor!");
             });
             socket.EmitAsync("register-unity", "Unity_Concert_Client");
         };
 
-        // 1. PERBAIKAN TOTAL: Membaca elemen pertama dari struktur SocketIOResponse
-        // 1. PERBAIKAN TOTAL: Log diletakkan sebelum proses penyaringan data!
         socket.On("tiktok-to-unity", response => {
             EnqueueAction(() => {
                 if (response == null) return;
-                
                 try 
                 {
-                    // Ambil isi teks murni dari indeks ke-0 response Socket.io
                     string jsonString = response.GetValue<string>(0);
-                    
-                    // ====================================================================
-                    // GERBANG UTAMA: LOG INI DIJAMIN MUNCUL JIKA SERVER MENGIRIM APAPUN!
-                    // ====================================================================
                     Debug.Log($"<color=purple><b>[SOCKET INCOMING RAW]:</b></color> {jsonString}");
-                    // ====================================================================
-                    
                     CoretaHadiahHandler(jsonString);
                 }
                 catch (System.Exception ex)
@@ -309,12 +302,6 @@ private void SetupAndConnectSocket()
             });
         });
 
-        // ====================================================================
-        // PINTO UTAMA: TIKTOK-ACTION YANG SUDAH SEPATUH DENGAN JsonElement (System.Text.Json)
-        // ====================================================================
-            // ====================================================================
-        // PINTU UTAMA: TIKTOK-ACTION (STRUKTUR SUPER AMAN - PASTI LOLOS COMPILE)
-        // ====================================================================
         socket.On("tiktok-action", response => {
             EnqueueAction(() => {
                 if (response == null) return;
@@ -322,34 +309,27 @@ private void SetupAndConnectSocket()
                 string jsonString = "";
                 try 
                 {
-                    // Ambil sebagai tipe data 'object' dasar agar bisa dicek null secara normal
                     object dataMentah = response.GetValue<object>(0);
                     if (dataMentah == null) return;
 
-                    // Menggunakan string refleksi nama tipe untuk menghindari error kaku compiler C#
                     string namaTipeData = dataMentah.GetType().ToString();
 
                     if (namaTipeData.Contains("JsonElement"))
                     {
-                        // Skenario 1: Jika library mengembalikan JsonElement (System.Text.Json)
-                        // Kita konversi paksa ke string JSON murni menggunakan ToString() bawaan JsonElement
                         jsonString = dataMentah.ToString();
                         Debug.Log($"<color=yellow><b>[SOCKET JSON-ELEMENT READ]:</b></color> {jsonString}");
                     }
                     else if (dataMentah is string textBiasa)
                     {
-                        // Skenario 2: Jika data terdeteksi berupa string teks biasa
                         jsonString = textBiasa;
                         Debug.Log($"<color=orange><b>[SOCKET STRING ACTION]:</b></color> {jsonString}");
                     }
                     else
                     {
-                        // Skenario 3: Untuk tipe objek lainnya (misal JObject Newtonsoft)
                         jsonString = dataMentah.ToString();
                         Debug.Log($"<color=cyan><b>[SOCKET OBJECT READ]:</b></color> {jsonString}");
                     }
 
-                    // Pembersihan karakter kurung siku penahan array jika dikirim dalam bentuk array []
                     jsonString = jsonString.Trim();
                     if (jsonString.StartsWith("[")) jsonString = jsonString.Substring(1);
                     if (jsonString.EndsWith("]")) jsonString = jsonString.Substring(0, jsonString.Length - 1);
@@ -358,7 +338,6 @@ private void SetupAndConnectSocket()
                 }
                 catch (System.Exception ex)
                 {
-                    // Proteksi Darurat Terakhir jika pemrosesan di atas crash
                     string backupString = response.ToString().Trim();
                     if (backupString.StartsWith("[") && backupString.EndsWith("]")) 
                         backupString = backupString.Substring(1, backupString.Length - 2);
@@ -369,7 +348,6 @@ private void SetupAndConnectSocket()
             });
         });
 
-        // Listener Detektif Error Koneksi
         socket.OnAny((eventName, response) => {
             if (eventName == "connect_error" || eventName == "error" || eventName == "disconnect")
             {
@@ -377,47 +355,68 @@ private void SetupAndConnectSocket()
             }
         });
 
-        // === GANTI socket.Connect(); DENGAN BLOK DI BAWAH INI ===
-        
-        Debug.Log("🌐 [SOCKET] Memulai prosedur koneksi aman WebGL...");
-        
-        #if UNITY_WEBGL && !UNITY_EDITOR
-        // Menggunakan StartCoroutine atau jalankan via Task tanpa memblokir thread utama WebGL
-        System.Threading.Tasks.Task.Run(async () => {
-            try {
-                await socket.ConnectAsync();
-                Debug.Log("🌐 [SOCKET] ConnectAsync sukses dieksekusi.");
-            } catch (System.Exception ex) {
-                Debug.LogError($"❌ [SOCKET] Gagal ConnectAsync di WebGL: {ex.Message}");
-            }
-        });
-        #else
-        // Untuk Unity Editor tetap gunakan Connect standar bawaan library Anda
+        Debug.Log("🌐 [SOCKET] Memulai prosedur koneksi di Unity Editor...");
         socket.Connect();
-        Debug.Log("🌐 [SOCKET] PC/Editor Connect dipicu.");
         #endif
     }
-    
 
-   private void EnqueueAction(Action action) { lock (mainThreadActions) { mainThreadActions.Enqueue(action); } }
+    // ====================================================================
+    // GERBANG MASUK DATA KHUSUS DARI JAVASCRIPT BROWSER WEBGL
+    // ====================================================================
+    public void TerimaDataTikTokDariBrowser(string jsonMentah)
+    {
+        if (string.IsNullOrEmpty(jsonMentah)) return;
 
-private void CoretaHadiahHandler(string jsonData)
+        EnqueueAction(() => {
+            try 
+            {
+                // Teruskan langsung ke handler paket kado Anda yang sudah berjalan baik
+                CoretaHadiahHandler(jsonMentah.Trim());
+            } 
+            catch (System.Exception ex) 
+            {
+                Debug.LogError($"❌ [BRIDGE CORRUPT] Gagal memproses data string dari browser: {ex.Message}");
+            }
+        });
+    }
+
+    public void SinyalKoneksiSuksesDariBrowser(string pesan)
+    {
+        Debug.Log($"<color=green><b>🔌 [BRIDGE CONNECTED]:</b> {pesan}</color>");
+        
+        // Sembunyikan elemen UI Menu Utama karena koneksi berhasil stabil
+        if (usernameInputField != null) usernameInputField.gameObject.SetActive(false);
+        if (connectButton != null) connectButton.gameObject.SetActive(false);
+        if (JudulGame != null) JudulGame.gameObject.SetActive(false);
+        if (Footer != null) Footer.gameObject.SetActive(false);
+
+        // Ubah animasi penonton yang berada di stage menjadi Idle konser
+        GameObject[] paraPenonton = GameObject.FindGameObjectsWithTag("Penonton");
+        if (paraPenonton != null && paraPenonton.Length > 0)
+        {
+            foreach (GameObject penonton in paraPenonton)
+            {
+                Animator anim = penonton.GetComponent<Animator>();
+                if (anim != null) { try { anim.CrossFadeInFixedTime("Idle", 0.2f); } catch { } }
+            }
+        }
+    }
+
+    private void EnqueueAction(Action action) { lock (mainThreadActions) { mainThreadActions.Enqueue(action); } }
+
+    private void CoretaHadiahHandler(string jsonData)
     {
         try
         {
-            // Pembersihan karakter kurung siku jika terdeteksi pembungkusan array mentah
             string jsonBersih = jsonData.Trim();
             if (jsonBersih.StartsWith("[")) jsonBersih = jsonBersih.Substring(1);
             if (jsonBersih.EndsWith("]")) jsonBersih = jsonBersih.Substring(0, jsonBersih.Length - 1);
             jsonBersih = jsonBersih.Trim();
 
-            // Parsing JSON dari Node.js ke Object C# Unity
             UnityTikTokPacket packet = JsonUtility.FromJson<UnityTikTokPacket>(jsonBersih);
             if (packet == null || string.IsNullOrEmpty(packet.@event)) return;
 
-            // ========================================================
-            // FUNGSI LOKAL: Dibuat khusus agar proses Spawn bisa dipanggil berulang
-            // ========================================================
+            // Fungsi lokal otomatisasi pembuatan karakter penonton
             System.Action MelahirkanPenontonLokal = () => {
                 if (viewersMapDiUnity.ContainsKey(packet.username)) return;
                 string prefabYangDipilih = UnityEngine.Random.Range(0, 2) == 0 ? "Penonton1" : "Penonton2";
@@ -450,15 +449,11 @@ private void CoretaHadiahHandler(string jsonData)
                     Debug.Log($"<color=green>👤 <b>[SPAWN SUCCESS]</b></color> @{packet.username} berhasil masuk arena konser.");
                 }
             };
-            // ========================================================
 
-            // 1. LOGIKA VIEWER JOIN -> SPAWN KARAKTER
             if (packet.@event == "join")
             {
                 MelahirkanPenontonLokal();
             }
-            
-            // 2. LOGIKA LIKE -> BERJOGET DI TEMPAT
             else if (packet.@event == "like")
             {
                 if (Time.time >= nextLikeTime)
@@ -473,14 +468,11 @@ private void CoretaHadiahHandler(string jsonData)
                     }
                 }
             }
-
-            // 3. LOGIKA GIFT (COIN) -> DENGAN AUTO-SPAWN JIKA USER BELUM TERDAFTAR JOIN
             else if (packet.@event == "gift")
             {
                 int jumlahKoin = packet.amount;
                 Debug.Log($"<color=cyan><b>[1. SOCKET RECEIVED]</b></color> Data gift terurai valid -> User: @{packet.username}, Gift: {packet.detail}, Jumlah Koin: {jumlahKoin}");
 
-                // PENGAMAN JIKA USER BELUM SPAWN (Auto-Spawn Darurat)
                 if (!viewersMapDiUnity.ContainsKey(packet.username))
                 {
                     Debug.LogWarning($"<color=orange><b>[AUTO-SPAWN]</b></color> @{packet.username} melakukan Gift sebelum memicu Join. Melahirkan karakter darurat...");
@@ -522,7 +514,12 @@ private void CoretaHadiahHandler(string jsonData)
         }
     }
 
-    private void OnDestroy() { if (socket != null) socket.Disconnect(); }
+    private void OnDestroy() 
+    { 
+        #if !UNITY_WEBGL || UNITY_EDITOR
+        if (socket != null) socket.Disconnect(); 
+        #endif
+    }
 }
 
 [System.Serializable]
