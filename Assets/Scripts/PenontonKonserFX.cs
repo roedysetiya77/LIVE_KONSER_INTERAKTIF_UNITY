@@ -8,7 +8,8 @@ public class PenontonKonserFX : MonoBehaviour
     private Quaternion rotasiBaseAwal;
     private Animator animator;
     private NavMeshAgent navMeshAgent;
-    private bool sedangAksi = false;
+    public bool sedangAksi = false;
+
 
     void Awake()
     {
@@ -120,7 +121,7 @@ public class PenontonKonserFX : MonoBehaviour
         sedangAksi = false;
     }
 
-    IEnumerator ProsesDansaDiPanggung(Transform targetHost)
+   IEnumerator ProsesDansaDiPanggung(Transform targetHost)
     {
         sedangAksi = true;
         Debug.Log($"<color=white><b>[{gameObject.name} TELEPORT]</b></color> Berteleportasi menuju panggung utama samping Host.");
@@ -145,10 +146,17 @@ public class PenontonKonserFX : MonoBehaviour
         Debug.Log($"<color=white><b>[{gameObject.name} DANCING]</b></color> Memulai urutan animasi tari otomatis.");
         if (animator != null)
         {
-            string[] daftarDansa = { "PicuDance01", "PicuDance02", "PicuDance03" };
-            foreach (string namaTrigger in daftarDansa)
+            // 🌟 PERBAIKAN WEBGL: Gunakan Hash ID (int) alih-alih String mentah di dalam Loop
+            int[] daftarDansaHash = {
+                Animator.StringToHash("PicuDance01"),
+                Animator.StringToHash("PicuDance02"),
+                Animator.StringToHash("PicuDance03")
+            };
+
+            foreach (int triggerHash in daftarDansaHash)
             {
-                animator.SetTrigger(namaTrigger);
+                // Panggil menggunakan ID angka, WebGL dijamin mengenali ini
+                animator.SetTrigger(triggerHash);
                 yield return new WaitForSeconds(4.0f); 
             }
         }

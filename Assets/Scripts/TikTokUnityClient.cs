@@ -161,7 +161,6 @@ public class TikTokUnityClient : MonoBehaviour
                     targetMataFokus = fokusKePenonton;
                 }
 
-                // Perbaikan XML-Safe string perbandingan untuk menghindari gangguan parser
                 Vector3 posisiTargetBaru = new Vector3(targetX, targetY, targetZ);
                 mainCamera.transform.position = Vector3.SmoothDamp(mainCamera.transform.position, posisiTargetBaru, ref velocityKamera, waktuRedam);
 
@@ -254,11 +253,10 @@ public class TikTokUnityClient : MonoBehaviour
         // ====================================================================
         // JALUR WEBGL ONLINE: DELEGASIKAN KONEKSI SEPENUHNYA KE BROWSER JS
         // ====================================================================
-        Debug.Log($"🔌 [WEBGL BRIDGE] Mengirim perintah koneksi ke Browser untuk Room: {tiktokUsername} di URL: {urlBersih}");
+        Debug.Log($"🔌 [WEBGL BRIDGE] Mengirim perintah koneksi ke Browser untuk Room: {tiktokUsername}");
         try 
         {
-            // Memanggil fungsi 'HubungkanSocketDariUnity' yang terpasang di file index.html
-            Application.ExternalCall("HubungkanSocketDariUnity", urlBersih, tiktokUsername);
+            Application.ExternalCall("HubungkanSocketDariUnity", tiktokUsername);
         } 
         catch (System.Exception ex) 
         {
@@ -360,9 +358,6 @@ public class TikTokUnityClient : MonoBehaviour
         #endif
     }
 
-    // ====================================================================
-    // GERBANG MASUK DATA KHUSUS DARI JAVASCRIPT BROWSER WEBGL
-    // ====================================================================
     public void TerimaDataTikTokDariBrowser(string jsonMentah)
     {
         if (string.IsNullOrEmpty(jsonMentah)) return;
@@ -370,7 +365,6 @@ public class TikTokUnityClient : MonoBehaviour
         EnqueueAction(() => {
             try 
             {
-                // Teruskan langsung ke handler paket kado Anda yang sudah berjalan baik
                 CoretaHadiahHandler(jsonMentah.Trim());
             } 
             catch (System.Exception ex) 
@@ -384,13 +378,11 @@ public class TikTokUnityClient : MonoBehaviour
     {
         Debug.Log($"<color=green><b>🔌 [BRIDGE CONNECTED]:</b> {pesan}</color>");
         
-        // Sembunyikan elemen UI Menu Utama karena koneksi berhasil stabil
         if (usernameInputField != null) usernameInputField.gameObject.SetActive(false);
         if (connectButton != null) connectButton.gameObject.SetActive(false);
         if (JudulGame != null) JudulGame.gameObject.SetActive(false);
         if (Footer != null) Footer.gameObject.SetActive(false);
 
-        // Ubah animasi penonton yang berada di stage menjadi Idle konser
         GameObject[] paraPenonton = GameObject.FindGameObjectsWithTag("Penonton");
         if (paraPenonton != null && paraPenonton.Length > 0)
         {
@@ -416,7 +408,6 @@ public class TikTokUnityClient : MonoBehaviour
             UnityTikTokPacket packet = JsonUtility.FromJson<UnityTikTokPacket>(jsonBersih);
             if (packet == null || string.IsNullOrEmpty(packet.@event)) return;
 
-            // Fungsi lokal otomatisasi pembuatan karakter penonton
             System.Action MelahirkanPenontonLokal = () => {
                 if (viewersMapDiUnity.ContainsKey(packet.username)) return;
                 string prefabYangDipilih = UnityEngine.Random.Range(0, 2) == 0 ? "Penonton1" : "Penonton2";
@@ -463,8 +454,23 @@ public class TikTokUnityClient : MonoBehaviour
 
                     if (penontonTarget != null)
                     {
+                        // 🌟 PERBAIKAN TIMING LIKE: Cek dulu komponen PenontonKonserFX agar tidak menimpa aksi terbang/dansa
+                        PenontonKonserFX fxScript = penontonTarget.GetComponent<PenontonKonserFX>();
+                        if (fxScript == null) fxScript = penontonTarget.AddComponent<PenontonKonserFX>();
+
+                        // Jika sedang sibuk terbang atau berdansa di panggung, abaikan request animasi Like agar tidak patah
+                        if (fxScript.sedangAksi) return; 
+
                         Animator penontonAnim = penontonTarget.GetComponent<Animator>();
-                        if (penontonAnim != null) penontonAnim.SetTrigger("PicuDance0" + UnityEngine.Random.Range(1, 4));
+                        if (penontonAnim != null) 
+                        {
+                            int angkaRandom = UnityEngine.Random.Range(1, 4); 
+                            string namaTrigger = "PicuDance0" + angkaRandom;
+                            int triggerHash = Animator.StringToHash(namaTrigger);
+                            
+                            penontonAnim.SetTrigger(triggerHash);
+                            Debug.Log($"🕺 [ANIMASI WEBGL] @{packet.username} memicu {namaTrigger} lewat HashID");
+                        }
                     }
                 }
             }
@@ -525,8 +531,8 @@ public class TikTokUnityClient : MonoBehaviour
 [System.Serializable]
 public class UnityTikTokPacket
 {
-    public string @event;     // Memetakan "event"
-    public string username;   // Memetakan "username"
-    public string detail;     // Memetakan "detail" (nama gift)
-    public int amount;        // Memetakan "amount" (jumlah repeat koin gift)
+    public string @event;     
+    public string username;   
+    public string detail;     
+    public int amount;        
 }
