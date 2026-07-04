@@ -98,15 +98,24 @@
 
       document.body.appendChild(script);
 
+     // ====================================================================
+      // 3. FUNGSI JEMBATAN (WEBGL BRIDGE) YANG DICARI OLEH UNITY CLIENT (FIXED)
       // ====================================================================
-      // 3. FUNGSI JEMBATAN (WEBGL BRIDGE) YANG DICARI OLEH UNITY CLIENT
-      // ====================================================================
-      function HubungkanSocketDariUnity(username) {
-        console.log("🔌 Menghubungkan ke room TikTok via WebGL Bridge: " + username);
+      window.HubungkanSocketDariUnity = function(dataPaketKoneksi) {
+        console.log("🔌 Menerima data paket dari Unity: " + dataPaketKoneksi);
+        
+        // Memisahkan username dan PIN yang digabung dengan koma
+        var bagian = dataPaketKoneksi.split(",");
+        var username = bagian[0] ? bagian[0].trim() : "";
+        var pin = bagian[1] ? bagian[1].trim() : "";
+
+        console.log("Username TikTok: " + username);
+        console.log("PIN Keamanan: " + pin);
         
         // Sesuaikan URL ini dengan backend server game TikTok Anda
         const targetServer = "https://game-tiktok.onrender.com";
         
+        // Membuka koneksi socket dan mengirim room username ke query
         const socket = io(targetServer, {
           query: { room: username }
         });
@@ -115,9 +124,12 @@
           console.log("✅ Terhubung ke Server Node.js dari Browser!");
           
           if (window.gameInstance) {
-            // PENTING: Ganti "TikTokClient" dengan nama GameObject tempat script Anda berada di Hierarchy Unity
+            // Mengirim sinyal sukses ke Unity agar UI (termasuk PIN) otomatis menghilang
             window.gameInstance.SendMessage('TiktokManager', 'SinyalKoneksiSuksesDariBrowser', 'Sukses terhubung via WebGL!');
           }
+
+          // Kirim data registrasi akun lengkap dengan PIN ke server Node.js Anda
+          socket.emit("connect-tiktok", { username: username, pin: pin, room: username });
         });
 
         socket.on("tiktok-to-unity", (data) => {
@@ -137,7 +149,7 @@
         socket.on("disconnect", () => {
           console.log("❌ Terputus dari server Node.js.");
         });
-      }
+      };
 
     </script>
   </body>
