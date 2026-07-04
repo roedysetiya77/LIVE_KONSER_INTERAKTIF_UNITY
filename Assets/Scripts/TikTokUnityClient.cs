@@ -6,6 +6,18 @@ using SocketIOClient;
 using UnityEngine.InputSystem; 
 using TMPro; 
 
+// ==========================================
+// DATA STRUKTUR UNTUK MEMBACA JSON (BARU)
+// ==========================================
+[System.Serializable]
+public class UnityTikTokPacket
+{
+    public string @event;   
+    public string username; 
+    public string detail;   
+    public int amount;      
+}
+
 public class TikTokUnityClient : MonoBehaviour
 {
     private SocketIOUnity socket;
@@ -16,12 +28,15 @@ public class TikTokUnityClient : MonoBehaviour
     
     [HideInInspector] 
     public string tiktokUsername = ""; 
+    [HideInInspector]
+    public string tiktokPin = ""; 
 
     [Header("Referensi UI Input Manual")]
     public TMP_InputField usernameInputField; 
-    public UnityEngine.UI.Button connectButton;    
-    public GameObject JudulGame; // Bisa diisi objek Text/UI Judul
-    public GameObject Footer;    // Bisa diisi objek Text/UI Footer
+    public TMP_InputField pinInputField; 
+    public UnityEngine.UI.Button connectButton;     
+    public GameObject JudulGame; 
+    public GameObject Footer;    
 
     [Header("Referensi Aktor Utama (Host)")]
     public Animator hostAnimator;
@@ -31,16 +46,9 @@ public class TikTokUnityClient : MonoBehaviour
     private float nextLikeTime = 0f; 
 
     [Header("🎥 MULTI-MODE DRONE SINEMATIK (3 MODE AUTOMATIC)")]
-    [Tooltip("Masukkan Main Camera Anda dari jendela Hierarchy ke sini")]
     public Camera mainCamera;
-    
-    [Tooltip("Waktu (detik) sebelum kamera berganti mode otomatis")]
     public float jedaGantiModeKamera = 15f;
-
-    [Tooltip("Lebar jangkauan drone ke kiri dan kanan (Berlaku global untuk kestabilan panggung)")]
     public float lebarAyunan = 10f; 
-    
-    [Tooltip("Seberapa dekat kamera nge-zoom saat mentok di ujung kiri/kanan (Mode 1 & Mode 2)")]
     public float kekuatanZoomIn = 3.5f;
 
     [Header("📐 SETINGAN MODE 1: MENGHADAP HOST (DARI DEPAN)")]
@@ -54,11 +62,8 @@ public class TikTokUnityClient : MonoBehaviour
     public float posisiZModePenonton = -1.0f;
 
     [Header("📐 SETINGAN MODE 3: BELAKANG HOST / OTS (MELIHAT PUNGGUNG & PENONTON)")]
-    [Tooltip("Kecepatan ayunan Mode 3 sengaja dibuat lambat agar wajah penonton jelas")]
     public float kecepatanDroneMode3 = 0.12f; 
-    [Tooltip("Tinggi kamera sejajar pundak/kepala Host")]
     public float tinggiDroneModeBelakang = 1.7f; 
-    [Tooltip("Posisi kamera mundur di belakang Host (Angka positif berarti di belakang panggung Z)")]
     public float posisiZModeBelakang = 0.5f; 
 
     [Header("🕹️ PENGATURAN MANUAL MOUSE (SAAT DRONE OFF)")]
@@ -67,24 +72,15 @@ public class TikTokUnityClient : MonoBehaviour
     private float rotasiX = 0f;
     private float rotasiY = 0f;
 
-    // Status Saklar Drone Cam
     private bool isDroneCamOn = true;
-
-    // Koordinat Target Fokus Masing-Masing Mode
     private Vector3 fokusKeHost = new Vector3(0.3f, 1.4f, -1.5f);
     private Vector3 fokusKePenonton = new Vector3(0.3f, 1.1f, -3.5f);
-
-    // Status Mode Kamera Sekarang (0 = Menghadap Host, 1 = Menghadap Penonton, 2 = Belakang Host)
     private int modeKameraAktif = 0;
     private float timerGantiMode = 0f;
-
-    // Variabel peredam transisi halus (Anti patah-patah)
     private Vector3 velocityKamera = Vector3.zero;
     private float waktuRedam = 0.45f; 
 
     private readonly Queue<Action> mainThreadActions = new Queue<Action>();
-
-    // List internal untuk memantau semua komponen text penonton agar bisa diputar otomatis (Anti-Terbalik)
     private List<TMP_Text> daftarTeksPenonton = new List<TMP_Text>();
 
     void Start()
@@ -97,7 +93,6 @@ public class TikTokUnityClient : MonoBehaviour
         
         if (mainCamera != null)
         {
-            // Ambil rotasi awal kamera sebagai titik start manual mode
             Vector3 rotasiAwal = mainCamera.transform.localRotation.eulerAngles;
             rotasiX = rotasiAwal.y;
             rotasiY = rotasiAwal.x;
@@ -106,7 +101,6 @@ public class TikTokUnityClient : MonoBehaviour
 
     void Update()
     {
-        // 1. Eksekusi Antrean Data dari Server
         lock (mainThreadActions)
         {
             while (mainThreadActions.Count > 0)
@@ -115,12 +109,10 @@ public class TikTokUnityClient : MonoBehaviour
             }
         }
 
-        // 2. LOGIKA KENDALIAN KAMERA (DRONE VS MANUAL MOUSE)
         if (mainCamera != null)
         {
             if (isDroneCamOn)
             {
-                // ================= DRONE CAM AKTIF (OTOMATIS) =================
                 timerGantiMode -= Time.deltaTime;
                 if (timerGantiMode <= 0f)
                 {
@@ -173,7 +165,6 @@ public class TikTokUnityClient : MonoBehaviour
             }
             else
             {
-                // ================= DRONE CAM OFF (MANUAL MOUSE) =================
                 if (Mouse.current != null && Mouse.current.rightButton.isPressed)
                 {
                     Vector2 deltaMouse = Mouse.current.delta.ReadValue();
@@ -194,7 +185,6 @@ public class TikTokUnityClient : MonoBehaviour
                 }
             }
 
-            // Papan nama penonton tetap menghadap lensa dalam kondisi apa pun
             for (int i = daftarTeksPenonton.Count - 1; i >= 0; i--)
             {
                 if (daftarTeksPenonton[i] != null)
@@ -204,7 +194,6 @@ public class TikTokUnityClient : MonoBehaviour
             }
         }
 
-        // 4. Logika Deteksi Input Keyboard Dance Host
         if (hostAnimator != null && Keyboard.current != null)
         {
             if (Keyboard.current.digit1Key.wasPressedThisFrame || Keyboard.current.numpad1Key.wasPressedThisFrame) hostAnimator.SetTrigger("PicuDance01");
@@ -229,7 +218,7 @@ public class TikTokUnityClient : MonoBehaviour
             Vector3 rotasiSaatIni = mainCamera.transform.localRotation.eulerAngles;
             rotasiX = rotasiSaatIni.y;
             rotasiY = rotasiSaatIni.x;
-            Debug.Log("🕹️ DroneCam dinonaktifkan: Silakan klik kanan tahan untuk geser & gunakan scroll roda mouse untuk Zoom!");
+            Debug.Log("🕹️ DroneCam dinonaktifkan: Gunakan klik kanan mouse untuk geser cam!");
         }
     }
 
@@ -237,11 +226,13 @@ public class TikTokUnityClient : MonoBehaviour
     {
         if (usernameInputField == null || string.IsNullOrEmpty(usernameInputField.text))
         {
-            Debug.LogError("❌ Username TikTok tidak boleh kosong! Silakan ketik dulu.");
+            Debug.LogError("❌ Username TikTok tidak boleh kosong!");
             return;
         }
 
         tiktokUsername = usernameInputField.text.Trim();
+        tiktokPin = pinInputField != null ? pinInputField.text.Trim() : ""; 
+        
         SetupAndConnectSocket(); 
     }
 
@@ -250,22 +241,17 @@ public class TikTokUnityClient : MonoBehaviour
         string urlBersih = serverUrl.Trim();
 
         #if UNITY_WEBGL && !UNITY_EDITOR
-        // ====================================================================
-        // JALUR WEBGL ONLINE: DELEGASIKAN KONEKSI SEPENUHNYA KE BROWSER JS
-        // ====================================================================
-        Debug.Log($"🔌 [WEBGL BRIDGE] Mengirim perintah koneksi ke Browser untuk Room: {tiktokUsername}");
+        Debug.Log($"🔌 [WEBGL BRIDGE] Mengirim perintah koneksi mandiri untuk Room: {tiktokUsername}");
         try 
         {
-            Application.ExternalCall("HubungkanSocketDariUnity", tiktokUsername);
+            string dataPaketKoneksi = tiktokUsername + "," + tiktokPin;
+            Application.ExternalCall("HubungkanSocketDariUnity", dataPaketKoneksi);
         } 
         catch (System.Exception ex) 
         {
             Debug.LogError($"❌ [BRIDGE ERROR] Gagal memanggil jembatan browser: {ex.Message}");
         }
         #else
-        // ====================================================================
-        // JALUR EDITOR / PC: MENGGUNAKAN LIBRARY C# ORIGINAL SPERTI BIASA
-        // ====================================================================
         string alamatSecure = urlBersih.Replace("https://", "wss://").Replace("http://", "ws://");
         var uri = new Uri(alamatSecure);
         
@@ -279,7 +265,8 @@ public class TikTokUnityClient : MonoBehaviour
             EnqueueAction(() => {
                 SinyalKoneksiSuksesDariBrowser("Terhubung via Editor!");
             });
-            socket.EmitAsync("register-unity", "Unity_Concert_Client");
+            var dataEmitPC = new { username = tiktokUsername, pin = tiktokPin, room = tiktokUsername };
+            socket.EmitAsync("connect-tiktok", dataEmitPC);
         };
 
         socket.On("tiktok-to-unity", response => {
@@ -288,13 +275,12 @@ public class TikTokUnityClient : MonoBehaviour
                 try 
                 {
                     string jsonString = response.GetValue<string>(0);
-                    Debug.Log($"<color=purple><b>[SOCKET INCOMING RAW]:</b></color> {jsonString}");
                     CoretaHadiahHandler(jsonString);
                 }
                 catch (System.Exception ex)
                 {
+                    Debug.LogWarning($"[SOCKET BACKUP READ] Error: {ex.Message}");
                     string backupString = response.ToString();
-                    Debug.LogWarning($"[SOCKET BACKUP READ]: {backupString}. Error: {ex.Message}");
                     CoretaHadiahHandler(backupString);
                 }
             });
@@ -310,22 +296,17 @@ public class TikTokUnityClient : MonoBehaviour
                     object dataMentah = response.GetValue<object>(0);
                     if (dataMentah == null) return;
 
-                    string namaTipeData = dataMentah.GetType().ToString();
-
-                    if (namaTipeData.Contains("JsonElement"))
+                    if (dataMentah.GetType().ToString().Contains("JsonElement"))
                     {
                         jsonString = dataMentah.ToString();
-                        Debug.Log($"<color=yellow><b>[SOCKET JSON-ELEMENT READ]:</b></color> {jsonString}");
                     }
                     else if (dataMentah is string textBiasa)
                     {
                         jsonString = textBiasa;
-                        Debug.Log($"<color=orange><b>[SOCKET STRING ACTION]:</b></color> {jsonString}");
                     }
                     else
                     {
                         jsonString = dataMentah.ToString();
-                        Debug.Log($"<color=cyan><b>[SOCKET OBJECT READ]:</b></color> {jsonString}");
                     }
 
                     jsonString = jsonString.Trim();
@@ -335,25 +316,25 @@ public class TikTokUnityClient : MonoBehaviour
                     CoretaHadiahHandler(jsonString.Trim());
                 }
                 catch (System.Exception ex)
-                {
+                    {
+                    Debug.LogWarning($"[SOCKET EMERGENCY READ] Error: {ex.Message}");
                     string backupString = response.ToString().Trim();
                     if (backupString.StartsWith("[") && backupString.EndsWith("]")) 
-                        backupString = backupString.Substring(1, backupString.Length - 2);
-                    
-                    Debug.LogWarning($"[SOCKET EMERGENCY READ]: {backupString}. Error: {ex.Message}");
+                    backupString = backupString.Substring(1, backupString.Length - 2);
+    
                     CoretaHadiahHandler(backupString);
-                }
+                    }
             });
         });
 
         socket.OnAny((eventName, response) => {
             if (eventName == "connect_error" || eventName == "error" || eventName == "disconnect")
             {
-                Debug.LogError($"❌ [SOCKET ALERT] Event Kegagalan Terdeteksi: {eventName} | Data: {response}");
+                Debug.LogError($"❌ [SOCKET ALERT] Event Kegagalan: {eventName}");
             }
         });
 
-        Debug.Log("🌐 [SOCKET] Memulai prosedur koneksi di Unity Editor...");
+        Debug.Log("🌐 [SOCKET] Memulai koneksi di Unity Editor...");
         socket.Connect();
         #endif
     }
@@ -369,7 +350,7 @@ public class TikTokUnityClient : MonoBehaviour
             } 
             catch (System.Exception ex) 
             {
-                Debug.LogError($"❌ [BRIDGE CORRUPT] Gagal memproses data string dari browser: {ex.Message}");
+                Debug.LogError($"❌ [BRIDGE CORRUPT] Gagal memproses data browser: {ex.Message}");
             }
         });
     }
@@ -379,6 +360,7 @@ public class TikTokUnityClient : MonoBehaviour
         Debug.Log($"<color=green><b>🔌 [BRIDGE CONNECTED]:</b> {pesan}</color>");
         
         if (usernameInputField != null) usernameInputField.gameObject.SetActive(false);
+        if (pinInputField != null) pinInputField.gameObject.SetActive(false); 
         if (connectButton != null) connectButton.gameObject.SetActive(false);
         if (JudulGame != null) JudulGame.gameObject.SetActive(false);
         if (Footer != null) Footer.gameObject.SetActive(false);
@@ -437,7 +419,6 @@ public class TikTokUnityClient : MonoBehaviour
                         if (!daftarTeksPenonton.Contains(komponenTeks)) daftarTeksPenonton.Add(komponenTeks);
                     }
                     viewersMapDiUnity.Add(packet.username, penontonBaru);
-                    Debug.Log($"<color=green>👤 <b>[SPAWN SUCCESS]</b></color> @{packet.username} berhasil masuk arena konser.");
                 }
             };
 
@@ -454,11 +435,9 @@ public class TikTokUnityClient : MonoBehaviour
 
                     if (penontonTarget != null)
                     {
-                        // 🌟 PERBAIKAN TIMING LIKE: Cek dulu komponen PenontonKonserFX agar tidak menimpa aksi terbang/dansa
                         PenontonKonserFX fxScript = penontonTarget.GetComponent<PenontonKonserFX>();
                         if (fxScript == null) fxScript = penontonTarget.AddComponent<PenontonKonserFX>();
 
-                        // Jika sedang sibuk terbang atau berdansa di panggung, abaikan request animasi Like agar tidak patah
                         if (fxScript.sedangAksi) return; 
 
                         Animator penontonAnim = penontonTarget.GetComponent<Animator>();
@@ -466,10 +445,7 @@ public class TikTokUnityClient : MonoBehaviour
                         {
                             int angkaRandom = UnityEngine.Random.Range(1, 4); 
                             string namaTrigger = "PicuDance0" + angkaRandom;
-                            int triggerHash = Animator.StringToHash(namaTrigger);
-                            
-                            penontonAnim.SetTrigger(triggerHash);
-                            Debug.Log($"🕺 [ANIMASI WEBGL] @{packet.username} memicu {namaTrigger} lewat HashID");
+                            penontonAnim.SetTrigger(Animator.StringToHash(namaTrigger));
                         }
                     }
                 }
@@ -477,46 +453,28 @@ public class TikTokUnityClient : MonoBehaviour
             else if (packet.@event == "gift")
             {
                 int jumlahKoin = packet.amount;
-                Debug.Log($"<color=cyan><b>[1. SOCKET RECEIVED]</b></color> Data gift terurai valid -> User: @{packet.username}, Gift: {packet.detail}, Jumlah Koin: {jumlahKoin}");
 
                 if (!viewersMapDiUnity.ContainsKey(packet.username))
                 {
-                    Debug.LogWarning($"<color=orange><b>[AUTO-SPAWN]</b></color> @{packet.username} melakukan Gift sebelum memicu Join. Melahirkan karakter darurat...");
                     MelahirkanPenontonLokal();
                 }
 
                 if (viewersMapDiUnity.ContainsKey(packet.username))
                 {
                     GameObject penontonGifter = viewersMapDiUnity[packet.username];
-                    
-                    if (penontonGifter == null)
-                    {
-                        Debug.LogError($"<color=red><b>[ERR-A]</b></color> Username @{packet.username} terdaftar di Map, tetapi objek fisiknya Null!");
-                        return;
-                    }
-
-                    if (hostAnimator == null)
-                    {
-                        Debug.LogError($"<color=red><b>[ERR-B]</b></color> Slot 'Host Animator' kosong di Inspector!");
-                        return;
-                    }
+                    if (penontonGifter == null || hostAnimator == null) return;
 
                     PenontonKonserFX fxScript = penontonGifter.GetComponent<PenontonKonserFX>();
-                    if (fxScript == null)
-                    {
-                        fxScript = penontonGifter.AddComponent<PenontonKonserFX>();
-                    }
+                    if (fxScript == null) fxScript = penontonGifter.AddComponent<PenontonKonserFX>();
 
                     Transform transHost = hostAnimator.transform;
-                    Debug.Log($"<color=green><b>[2. CALLING FX]</b></color> Memicu fungsi TerimaGift() pada karakter: {penontonGifter.name}");
-                    
                     fxScript.TerimaGift(jumlahKoin, transHost);
                 }
             }
         }
         catch (System.Exception ex) 
         { 
-            Debug.LogError($"❌ [LOG ERROR HADIAH] Gagal memproses data kado: {ex.Message}"); 
+            Debug.LogError($"❌ [ERROR HADIAH] Gagal: {ex.Message}"); 
         }
     }
 
@@ -526,13 +484,4 @@ public class TikTokUnityClient : MonoBehaviour
         if (socket != null) socket.Disconnect(); 
         #endif
     }
-}
-
-[System.Serializable]
-public class UnityTikTokPacket
-{
-    public string @event;     
-    public string username;   
-    public string detail;     
-    public int amount;        
 }
