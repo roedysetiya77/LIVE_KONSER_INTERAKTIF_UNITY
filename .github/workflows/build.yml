@@ -1,0 +1,39 @@
+name: Build Game Exe Online 🚀
+
+on:
+  workflow_dispatch: # Membikin tombol biar bisa build manual kapan saja
+
+jobs:
+  buildForWindows:
+    name: Build untuk Windows Standalone 🪟
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+    steps:
+      # 1. Ambil kode dari Github
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      # 2. Cache library Unity biar build berikutnya lebih cepat
+      - name: Cache Library
+        uses: actions/cache@v4
+        with:
+          path: Library
+          key: Library-Windows
+
+      # 3. Proses Build menggunakan GameCI
+      - name: Run Unity Build
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+        with:
+          targetPlatform: StandaloneWindows64
+
+      # 4. Upload hasilnya agar bisa di-download (.exe)
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Game-Windows-Exe
+          path: build/StandaloneWindows64
