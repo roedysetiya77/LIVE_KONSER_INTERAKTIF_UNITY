@@ -7,12 +7,14 @@ using UnityEngine.InputSystem;
 using TMPro; 
 
 // ==========================================
-// DATA STRUKTUR UNTUK MEMBACA JSON (BARU)
+// DATA STRUKTUR YANG SUDAH DIPERBAIKI
 // ==========================================
 [System.Serializable]
 public class UnityTikTokPacket
 {
+    // Menggunakan nama banyangan agar tidak tabrakan dengan keyword C#
     public string @event;   
+    public string eventName; // Cadangan untuk parser manual
     public string username; 
     public string detail;   
     public int amount;      
@@ -238,6 +240,9 @@ public class TikTokUnityClient : MonoBehaviour
 
     private void SetupAndConnectSocket()
     {
+        if (usernameInputField != null) tiktokUsername = usernameInputField.text;
+        if (pinInputField != null) tiktokPin = pinInputField.text;
+
         string urlBersih = serverUrl.Trim();
 
         #if UNITY_WEBGL && !UNITY_EDITOR
@@ -263,7 +268,7 @@ public class TikTokUnityClient : MonoBehaviour
 
         socket.OnConnected += (sender, e) => {
             EnqueueAction(() => {
-                SinyalKoneksiSuksesDariBrowser("Terhubung via Editor!");
+                SinyalKoneksiSuksesDariBrowser("Terhubung via Editor/EXE!");
             });
             var dataEmitPC = new { username = tiktokUsername, pin = tiktokPin, room = tiktokUsername };
             socket.EmitAsync("connect-tiktok", dataEmitPC);
@@ -279,7 +284,6 @@ public class TikTokUnityClient : MonoBehaviour
                 }
                 catch (System.Exception ex)
                 {
-                    Debug.LogWarning($"[SOCKET BACKUP READ] Error: {ex.Message}");
                     string backupString = response.ToString();
                     CoretaHadiahHandler(backupString);
                 }
@@ -296,34 +300,21 @@ public class TikTokUnityClient : MonoBehaviour
                     object dataMentah = response.GetValue<object>(0);
                     if (dataMentah == null) return;
 
-                    if (dataMentah.GetType().ToString().Contains("JsonElement"))
-                    {
-                        jsonString = dataMentah.ToString();
-                    }
-                    else if (dataMentah is string textBiasa)
-                    {
-                        jsonString = textBiasa;
-                    }
-                    else
-                    {
-                        jsonString = dataMentah.ToString();
-                    }
-
-                    jsonString = jsonString.Trim();
+                    jsonString = dataMentah.ToString().Trim();
+                    
                     if (jsonString.StartsWith("[")) jsonString = jsonString.Substring(1);
                     if (jsonString.EndsWith("]")) jsonString = jsonString.Substring(0, jsonString.Length - 1);
 
                     CoretaHadiahHandler(jsonString.Trim());
                 }
                 catch (System.Exception ex)
-                    {
-                    Debug.LogWarning($"[SOCKET EMERGENCY READ] Error: {ex.Message}");
+                {
                     string backupString = response.ToString().Trim();
                     if (backupString.StartsWith("[") && backupString.EndsWith("]")) 
-                    backupString = backupString.Substring(1, backupString.Length - 2);
+                        backupString = backupString.Substring(1, backupString.Length - 2);
     
                     CoretaHadiahHandler(backupString);
-                    }
+                }
             });
         });
 
@@ -334,7 +325,7 @@ public class TikTokUnityClient : MonoBehaviour
             }
         });
 
-        Debug.Log("🌐 [SOCKET] Memulai koneksi di Unity Editor...");
+        Debug.Log("🌐 [SOCKET] Memulai koneksi ke Server Node.js...");
         socket.Connect();
         #endif
     }
@@ -365,6 +356,8 @@ public class TikTokUnityClient : MonoBehaviour
         if (JudulGame != null) JudulGame.gameObject.SetActive(false);
         if (Footer != null) Footer.gameObject.SetActive(false);
 
+        MatikanInputPINManual();
+
         GameObject[] paraPenonton = GameObject.FindGameObjectsWithTag("Penonton");
         if (paraPenonton != null && paraPenonton.Length > 0)
         {
@@ -378,28 +371,25 @@ public class TikTokUnityClient : MonoBehaviour
 
     private void EnqueueAction(Action action) { lock (mainThreadActions) { mainThreadActions.Enqueue(action); } }
 
-
-    // Tambahkan fungsi ini di dalam script TikTokUnityClient.cs Anda
-public void MatikanInputPINManual()
-{
-    if (pinInputField != null)
+    public void MatikanInputPINManual()
     {
-        pinInputField.gameObject.SetActive(false);
-        Debug.Log("🔒 [WEBGL FIX] Input PIN berhasil dimatikan secara manual lewat perintah jembatan browser!");
-    }
-    else
-    {
-        // Jika ternyata slotnya kosong, kita cari paksa berdasarkan nama objeknya di Hierarchy
-        GameObject targetPIN = GameObject.Find("InputPIN");
-        if (targetPIN != null)
+        if (pinInputField != null)
         {
-            targetPIN.SetActive(false);
-            Debug.Log("🔒 [WEBGL FIX] Input PIN ditemukan secara paksa di Hierarchy dan berhasil dimatikan!");
+            pinInputField.gameObject.SetActive(false);
+        }
+        else
+        {
+            GameObject targetPIN = GameObject.Find("InputPIN");
+            if (targetPIN != null) targetPIN.SetActive(false);
         }
     }
-}
 
-
+    // =========================================================================
+    // HANDLER UTAMA DATA MASUK (SUDAH DIOPTIMALKAN UNTUK AMAN DARI BUG EVENT)
+    // =========================================================================
+// =========================================================================
+    // HANDLER UTAMA DATA MASUK (SUDAH DIOPTIMALKAN & BERSIH DARI WARNING)
+    // =========================================================================
     private void CoretaHadiahHandler(string jsonData)
     {
         try
@@ -409,11 +399,34 @@ public void MatikanInputPINManual()
             if (jsonBersih.EndsWith("]")) jsonBersih = jsonBersih.Substring(0, jsonBersih.Length - 1);
             jsonBersih = jsonBersih.Trim();
 
+            Debug.Log($"[RAW DATA MASUK]: {jsonBersih}");
+
+            // Mengatasi kegagalan JsonUtility membaca "@event" secara langsung
             UnityTikTokPacket packet = JsonUtility.FromJson<UnityTikTokPacket>(jsonBersih);
-            if (packet == null || string.IsNullOrEmpty(packet.@event)) return;
+            
+            if (packet == null) return;
+
+            // Trik Bypass jika properti @event kosong di C# akibat salah deteksi JsonUtility
+            if (string.IsNullOrEmpty(packet.@event))
+            {
+                if (jsonBersih.Contains("\"event\":\"join\"") || jsonBersih.Contains("\"event\": \"join\"")) packet.eventName = "join";
+                else if (jsonBersih.Contains("\"event\":\"like\"") || jsonBersih.Contains("\"event\": \"like\"")) packet.eventName = "like";
+                else if (jsonBersih.Contains("\"event\":\"gift\"") || jsonBersih.Contains("\"event\": \"gift\"")) packet.eventName = "gift";
+            }
+            else
+            {
+                packet.eventName = packet.@event;
+            }
+
+            if (string.IsNullOrEmpty(packet.eventName) || string.IsNullOrEmpty(packet.username)) 
+            {
+                Debug.LogWarning("⚠️ Nama event atau username kosong, data dilewati.");
+                return;
+            }
 
             System.Action MelahirkanPenontonLokal = () => {
                 if (viewersMapDiUnity.ContainsKey(packet.username)) return;
+                
                 string prefabYangDipilih = UnityEngine.Random.Range(0, 2) == 0 ? "Penonton1" : "Penonton2";
                 GameObject prefabMentah = Resources.Load<GameObject>(prefabYangDipilih);
 
@@ -441,14 +454,20 @@ public void MatikanInputPINManual()
                         if (!daftarTeksPenonton.Contains(komponenTeks)) daftarTeksPenonton.Add(komponenTeks);
                     }
                     viewersMapDiUnity.Add(packet.username, penontonBaru);
+                    Debug.Log($"🟢 [SPAWN BERHASIL] Penonton baru: @{packet.username}");
+                }
+                else
+                {
+                    Debug.LogError($"❌ [SPAWN GAGAL] Prefab '{prefabYangDipilih}' tidak ditemukan di folder Assets/Resources/ !");
                 }
             };
 
-            if (packet.@event == "join")
+            // Logika aksi berdasarkan event yang sudah diperbaiki
+            if (packet.eventName == "join")
             {
                 MelahirkanPenontonLokal();
             }
-            else if (packet.@event == "like")
+            else if (packet.eventName == "like")
             {
                 if (Time.time >= nextLikeTime)
                 {
@@ -472,7 +491,7 @@ public void MatikanInputPINManual()
                     }
                 }
             }
-            else if (packet.@event == "gift")
+            else if (packet.eventName == "gift")
             {
                 int jumlahKoin = packet.amount;
 
@@ -496,7 +515,8 @@ public void MatikanInputPINManual()
         }
         catch (System.Exception ex) 
         { 
-            Debug.LogError($"❌ [ERROR HADIAH] Gagal: {ex.Message}"); 
+            // Variabel 'ex' sekarang digunakan untuk menampilkan detail error di log console
+            Debug.LogError($"❌ [ERROR HADIAH] Gagal memproses JSON: {ex.Message} \nDetail StackTrace: {ex.StackTrace}"); 
         }
     }
 

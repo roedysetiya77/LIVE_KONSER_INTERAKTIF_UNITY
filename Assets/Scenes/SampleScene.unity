@@ -1822,7 +1822,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::TikTokUnityClient
   serverUrl: https://game-tiktok.onrender.com
   tiktokUsername: ceoindonesianghost
+  tiktokPin: 
   usernameInputField: {fileID: 2105493104}
+  pinInputField: {fileID: 1543475016}
   connectButton: {fileID: 198892630}
   JudulGame: {fileID: 1642299782}
   Footer: {fileID: 193273600}
