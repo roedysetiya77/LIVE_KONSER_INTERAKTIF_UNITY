@@ -1,7 +1,7 @@
 name: Build Game Exe Online 🚀
 
 on:
-  workflow_dispatch: # Membikin tombol biar bisa build manual kapan saja
+  workflow_dispatch: # Mengaktifkan tombol build manual di menu Actions
 
 jobs:
   buildForWindows:
@@ -10,28 +10,42 @@ jobs:
     strategy:
       fail-fast: false
     steps:
-      # 1. Ambil kode dari Github
+      # 1. Bersihkan ruang disk agar proses kompilasi lancar
+      - name: Free Disk Space 🧹
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf "/usr/local/share/boost"
+          sudo rm -rf /usr/lib/jvm
+
+      # 2. Ambil kode dari Github
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           lfs: true
 
-      # 2. Cache library Unity biar build berikutnya lebih cepat
-      - name: Cache Library
+      # 3. Cache library Unity khusus platform Windows
+      - name: Cache Library folder
         uses: actions/cache@v4
         with:
           path: Library
-          key: Library-Windows
+          key: Library-Windows-${{ hashFiles('Packages/manifest.json') }}
+          restore-keys: |
+            Library-Windows-
 
-      # 3. Proses Build menggunakan GameCI
+      # 4. Proses Build menggunakan GameCI (Sudah Menggunakan 3 Variabel Lisensi Lengkap)
       - name: Run Unity Build
         uses: game-ci/unity-builder@v4
         env:
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
         with:
           targetPlatform: StandaloneWindows64
+          unityVersion: 6000.5.1f1
 
-      # 4. Upload hasilnya agar bisa di-download (.exe)
+      # 5. Upload hasilnya agar bisa di-download (.exe)
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
         with:
