@@ -6,9 +6,6 @@
     <title>Unity Web Player | Tiktok Game Live</title>
     <link rel="shortcut icon" href="TemplateData/favicon.ico">
     <link rel="stylesheet" href="TemplateData/style.css">
-    
-    <!-- 1. MEMUAT LIBRARY SOCKET.IO UNTUK WEBGL BROWSER -->
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   </head>
   <body>
     <div id="unity-container" class="unity-desktop">
@@ -29,6 +26,12 @@
     <script>
       var canvas = document.querySelector("#unity-canvas");
 
+      // Shows a temporary message banner/ribbon for a few seconds, or
+      // a permanent error message on top of the canvas if type=='error'.
+      // If type=='warning', a yellow highlight color is used.
+      // Modify or remove this function to customize the visually presented
+      // way that non-critical warnings and error messages are presented to the
+      // user.
       function unityShowBanner(msg, type) {
         var warningBanner = document.querySelector("#unity-warning");
         function updateBannerVisibility() {
@@ -58,18 +61,49 @@
         streamingAssetsUrl: "StreamingAssets",
         companyName: "DefaultCompany",
         productName: "Tiktok Game Live",
-        productVersion: "0.0.18",
+        productVersion: "0.0.31",
         showBanner: unityShowBanner,
+        // errorHandler: function(err, url, line) {
+        //    alert("error " + err + " occurred at line " + line);
+        //    // Return 'true' if you handled this error and don't want Unity
+        //    // to process it further, 'false' otherwise.
+        //    return true;
+        // },
       };
 
+      // By default, Unity keeps WebGL canvas render target size matched with
+      // the DOM size of the canvas element (scaled by window.devicePixelRatio)
+      // Set this to false if you want to decouple this synchronization from
+      // happening inside the engine, and you would instead like to size up
+      // the canvas DOM size and WebGL render target sizes yourself.
+      // config.matchWebGLToCanvasSize = false;
+
+      // If you would like all file writes inside Unity Application.persistentDataPath
+      // directory to automatically persist so that the contents are remembered when
+      // the user revisits the site the next time, uncomment the following line:
+      // config.autoSyncPersistentDataPath = true;
+      // This autosyncing is currently not the default behavior to avoid regressing
+      // existing user projects that might rely on the earlier manual
+      // JS_FileSystem_Sync() behavior, but in future Unity version, this will be
+      // expected to change.
+
       if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+        // Mobile device style: fill the whole browser client area with the game canvas:
+
         var meta = document.createElement('meta');
         meta.name = 'viewport';
         meta.content = 'width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes';
         document.getElementsByTagName('head')[0].appendChild(meta);
         document.querySelector("#unity-container").className = "unity-mobile";
         canvas.className = "unity-mobile";
+
+        // To lower canvas resolution on mobile devices to gain some
+        // performance, uncomment the following line:
+        // config.devicePixelRatio = 1;
+
+
       } else {
+        // Desktop style: Render the game canvas in a window that can be maximized to fullscreen:
         canvas.style.width = "960px";
         canvas.style.height = "600px";
       }
@@ -81,78 +115,18 @@
       script.onload = () => {
         createUnityInstance(canvas, config, (progress) => {
           document.querySelector("#unity-progress-bar-full").style.width = 100 * progress + "%";
-        }).then((unityInstance) => {
-          
-          // 2. MENYIMPAN INSTANSI UNITY AGAR BISA DIPANGGIL JAVASCRIPT
-          window.gameInstance = unityInstance;
+              }).then((unityInstance) => {
+                document.querySelector("#unity-loading-bar").style.display = "none";
+                document.querySelector("#unity-fullscreen-button").onclick = () => {
+                  unityInstance.SetFullscreen(1);
+                };
 
-          document.querySelector("#unity-loading-bar").style.display = "none";
-          document.querySelector("#unity-fullscreen-button").onclick = () => {
-            unityInstance.SetFullscreen(1);
-          };
-
-        }).catch((message) => {
-          alert(message);
-        });
-      };
+              }).catch((message) => {
+                alert(message);
+              });
+            };
 
       document.body.appendChild(script);
-
-     // ====================================================================
-      // 3. FUNGSI JEMBATAN (WEBGL BRIDGE) YANG DICARI OLEH UNITY CLIENT (FIXED)
-      // ====================================================================
-      window.HubungkanSocketDariUnity = function(dataPaketKoneksi) {
-        console.log("🔌 Menerima data paket dari Unity: " + dataPaketKoneksi);
-        
-        // Memisahkan username dan PIN yang digabung dengan koma
-        var bagian = dataPaketKoneksi.split(",");
-        var username = bagian[0] ? bagian[0].trim() : "";
-        var pin = bagian[1] ? bagian[1].trim() : "";
-
-        console.log("Username TikTok: " + username);
-        console.log("PIN Keamanan: " + pin);
-        
-        // Sesuaikan URL ini dengan backend server game TikTok Anda
-        const targetServer = "https://game-tiktok.onrender.com";
-        
-        // Membuka koneksi socket dan mengirim room username ke query
-        const socket = io(targetServer, {
-          query: { room: username }
-        });
-
-        socket.on("connect", () => {
-          console.log("✅ Terhubung ke Server Node.js dari Browser!");
-          
-          if (window.gameInstance) {
-            // 1. Mengirim sinyal sukses utama Anda
-            window.gameInstance.SendMessage('TiktokManager', 'SinyalKoneksiSuksesDariBrowser', 'Sukses terhubung via WebGL!');
-            
-            // 2. TWEAK FIX: Alih-alih memanggil InputPIN langsung, kita suruh TiktokManager untuk mematikan komponen InputField-nya secara paksa dari luar
-            window.gameInstance.SendMessage('TiktokManager', 'MatikanInputPINManual');
-          }
-
-          // Kirim data registrasi akun lengkap dengan PIN ke server Node.js Anda
-          socket.emit("connect-tiktok", { username: username, pin: pin, room: username });
-        });
-
-        socket.on("tiktok-to-unity", (data) => {
-          if (window.gameInstance) {
-            let jsonString = typeof data === 'object' ? JSON.stringify(data) : data;
-            window.gameInstance.SendMessage('TiktokManager', 'TerimaDataTikTokDariBrowser', jsonString);
-          }
-        });
-        
-        socket.on("tiktok-action", (data) => {
-          if (window.gameInstance) {
-            let jsonString = typeof data === 'object' ? JSON.stringify(data) : data;
-            window.gameInstance.SendMessage('TiktokManager', 'TerimaDataTikTokDariBrowser', jsonString);
-          }
-        });
-
-        socket.on("disconnect", () => {
-          console.log("❌ Terputus dari server Node.js.");
-        });
-      };
 
     </script>
   </body>
