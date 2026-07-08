@@ -91,7 +91,7 @@ public class MediaRuntimeLoader : MonoBehaviour
         Debug.Log("Audio Terpilih Berhasil (WebGL Blob): " + jalurAudio);
     }
 
-    // 3. Fungsi UTAMA untuk memutar Video & Audio secara serentak
+   // 3. Fungsi UTAMA untuk memutar Video & Audio secara serentak (SUDAH DIPERBAIKI)
     public void PutarKonser()
     {
         if (string.IsNullOrEmpty(jalurAudio))
@@ -100,7 +100,18 @@ public class MediaRuntimeLoader : MonoBehaviour
             return;
         }
 
-        if (!string.IsNullOrEmpty(jalurVideo))
+        // --- PERBAIKAN LOGIKA: UTAMAKAN WEBCAM TERLEBIH DAHULU ---
+        if (isCamActive)
+        {
+            // Jika tombol kamera aktif, matikan video player total agar tidak menimpa layar
+            videoPlayer.Stop();
+            audioSource.Stop();
+            
+            // Set renderMode ke APIOnly agar VideoPlayer melepas kontrol atas RenderTexture
+            videoPlayer.renderMode = VideoRenderMode.APIOnly; 
+            Debug.Log("📷 MODE WEBCAM AKTIF: Menghentikan Video URL/Bawaan Unity.");
+        }
+        else if (!string.IsNullOrEmpty(jalurVideo))
         {
             MatikanKamera(); 
             videoPlayer.Stop();
@@ -108,28 +119,23 @@ public class MediaRuntimeLoader : MonoBehaviour
 
             videoPlayer.renderMode = VideoRenderMode.RenderTexture; 
             videoPlayer.source = VideoSource.Url;
-            videoPlayer.url = jalurVideo; // Langsung membaca URL Blob lokal web browser
+            videoPlayer.url = jalurVideo; // Membaca URL Blob lokal web browser
             videoPlayer.Play();
-            Debug.Log("Memutar Video Baru + MP3 Baru.");
-        }
-        else if (isCamActive)
-        {
-            audioSource.Stop(); 
-            videoPlayer.Stop();
-            videoPlayer.renderMode = VideoRenderMode.APIOnly; 
-            Debug.Log("Webcam AKTIF. Memaksa VideoPlayer mengalah.");
+            Debug.Log("🎬 MODE VIDEO USER: Memutar Video Pilihan (.mp4) + MP3.");
         }
         else
         {
+            MatikanKamera();
             videoPlayer.Stop();
             audioSource.Stop();
 
             videoPlayer.renderMode = VideoRenderMode.RenderTexture; 
             videoPlayer.source = VideoSource.VideoClip; 
             videoPlayer.Play();
-            Debug.Log("Menggunakan Video Bawaan Unity.");
+            Debug.Log("🌐 MODE DEFAULT: Menggunakan Video Bawaan Unity.");
         }
 
+        // Putar audio MP3 yang sudah dipilih
         StartCoroutine(MuatDanPutarAudio(jalurAudio));
     }
 
