@@ -44,6 +44,7 @@ jobs:
         with:
           targetPlatform: StandaloneWindows64
           unityVersion: 6000.5.1f1
+          buildName: LiveKonserTiktok # <-- TAMBAHKAN BARIS INI UNTUK MENGUBAH NAMA .EXE
 
       # 5. Upload hasilnya agar bisa di-download (.exe)
       - name: Upload Build Artifact
